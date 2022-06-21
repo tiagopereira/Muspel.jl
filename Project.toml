@@ -1,0 +1,13 @@
+name = "Muspel"
+uuid = "6074595b-091a-495a-9b39-045a690b2c53"
+authors = ["Tiago M. D. Pereira"]
+version = "0.1.0"
+
+[compat]
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
