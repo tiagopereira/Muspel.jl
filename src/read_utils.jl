@@ -51,6 +51,6 @@ function read_atom(atom_file)
     # ...
     # Collisions
     # ...
-    AtomicModel{nlevels, FloatT, IntT}(element, nlevels, 1, ncont, Z, mass,
-                                       χ, g, stage, label, continua)
+    return AtomicModel{nlevels, FloatT, IntT}(element, nlevels, 1, ncont, Z, mass,
+                                              χ, g, stage, label, continua)
 end

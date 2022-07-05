@@ -1,3 +1,6 @@
+"""
+Collection of types.
+"""
 
 struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
     nx::IntT
@@ -30,22 +33,6 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-struct AtomicModel{Nlevel, FloatT <: AbstractFloat, IntT <: Integer}
-    element::Symbol
-    nlevels::IntT
-    nlines::IntT
-    ncontinua::IntT
-    Z::IntT
-    mass::FloatT
-	χ::SVector{Nlevel, FloatT}  # Energy in J or aJ?
-	g::SVector{Nlevel, IntT}
-	stage::SVector{Nlevel, IntT}
-	label::Vector{String}
-    #lines::Vector{AtomicLine{FloatT, IntT}}
-    continua::Vector{AtomicContinuum}
-end
-
-
 struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
     nλ::IntT
     χup::FloatT
@@ -66,6 +53,7 @@ struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
     # -ASYMM, SYMM?
     # -Other terms for polarimetry
 end
+
 
 struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
     up::IntT
@@ -91,4 +79,20 @@ struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
             error("Unknown AtomicContinuum kind $kind")
         end
     end
+end
+
+
+struct AtomicModel{Nlevel, FloatT <: AbstractFloat, IntT <: Integer}
+    element::Symbol
+    nlevels::IntT
+    nlines::IntT
+    ncontinua::IntT
+    Z::IntT
+    mass::FloatT
+	χ::SVector{Nlevel, FloatT}  # Energy in J or aJ?
+	g::SVector{Nlevel, IntT}
+	stage::SVector{Nlevel, IntT}
+	label::Vector{String}
+    #lines::Vector{AtomicLine{FloatT, IntT}}
+    continua::Vector{AtomicContinuum}
 end

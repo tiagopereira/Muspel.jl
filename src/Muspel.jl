@@ -1,5 +1,9 @@
 module Muspel
 
+export Atmosphere, AtomicLine, AtomicContinuum, AtomicModel
+export read_atom
+export saha_boltzmann
+
 using PeriodicTable
 using StaticArrays
 using Transparency

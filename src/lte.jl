@@ -51,7 +51,7 @@ function saha_boltzmann(χ::SVector,
         total += populations[i]
     end
     populations[1] = 1
-    populations / total
+    return populations / total
 end
 
 function saha_boltzmann(atom::AtomicModel,
