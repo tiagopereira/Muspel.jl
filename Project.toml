@@ -3,6 +3,9 @@ uuid = "6074595b-091a-495a-9b39-045a690b2c53"
 authors = ["Tiago M. D. Pereira"]
 version = "0.1.0"
 
+[deps]
+PeriodicTable = "7b2266bf-644c-5ea3-82d8-af4bbd25a884"
+
 [compat]
 julia = "^1.7"
 
