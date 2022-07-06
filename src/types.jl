@@ -59,25 +59,15 @@ struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
     up::IntT
     lo::IntT
     nλ::IntT
-    λmin::FloatT
+    λedge::FloatT  # in nm
     σ::SVector{Nλ, FloatT}  # m^-2
     λ::SVector{Nλ, FloatT}  # nm
-
-    function AtomicContinuum(up, lo; kind="explicit", σ=nothing, λ=nothing,
-                              λmin=nothing, nλ=nothing, σmax=nothing)
-        if kind == "explicit"
-            @assert typeof(σ) <: AbstractVector{T} where T <: AbstractFloat
-            @assert typeof(λ) <: AbstractVector{T} where T <: AbstractFloat
-            @assert length(σ) == length(λ)
-            nλ = length(σ)
-            λmin = minimum(λ)
-            new{nλ, eltype(σ), eltype(nλ)}(up, lo, nλ, λmin, σ, λ)
-        elseif kind == "hydrogenic"
-            # See SolarMCRT transition_λ and sample_λ_boundfree
-            error("Hydrogenic not yet supported")
-        else
-            error("Unknown AtomicContinuum kind $kind")
-        end
+    function AtomicContinuum(λedge, up, lo, σ, λ)
+        @assert typeof(σ) <: AbstractVector{T} where T <: AbstractFloat
+        @assert typeof(λ) <: AbstractVector{T} where T <: AbstractFloat
+        @assert length(σ) == length(λ)
+        nλ = length(σ)
+        return new{nλ, eltype(σ), typeof(nλ)}(up, lo, nλ, λedge, σ, λ)
     end
 end
 
