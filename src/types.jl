@@ -44,14 +44,15 @@ struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
     Bul::FloatT
     λ0::FloatT  # in nm
     f_value::FloatT
-    # Extra things needed:
-    # -van der Waals recipe
-    # -Barklem coefficients
-    # -wavelengths
-    # -Nlambda, qcore, qwing, ?
-    # -PRD, Voigt, Gauss
-    # -ASYMM, SYMM?
-    # -Other terms for polarimetry
+    λ::Vector{FloatT}
+    PRD::Bool
+    Voigt::Bool
+    label_up::String
+    label_lo::String
+    γ_vdW_type::String
+    γ_vdW_const::FloatT
+    γ_vdW_exp::FloatT
+    γ_quad_stark_const::FloatT
 end
 
 
@@ -83,6 +84,6 @@ struct AtomicModel{Nlevel, FloatT <: AbstractFloat, IntT <: Integer}
 	g::SVector{Nlevel, IntT}
 	stage::SVector{Nlevel, IntT}
 	label::Vector{String}
-    #lines::Vector{AtomicLine{FloatT, IntT}}
+    lines::Vector{AtomicLine}
     continua::Vector{AtomicContinuum}
 end
