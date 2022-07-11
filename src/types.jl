@@ -33,7 +33,7 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
+struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     nλ::IntT
     χup::FloatT
     χlo::FloatT
@@ -49,9 +49,8 @@ struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
     Voigt::Bool
     label_up::String
     label_lo::String
-    γ_vdW_type::String
-    γ_vdW_const::FloatT
-    γ_vdW_exp::FloatT
+    γ_vdW_const::SVector{N, FloatT}
+    γ_vdW_exp::SVector{N, FloatT}
     γ_quad_stark_const::FloatT
 end
 
@@ -80,10 +79,10 @@ struct AtomicModel{Nlevel, FloatT <: AbstractFloat, IntT <: Integer}
     ncontinua::IntT
     Z::IntT
     mass::FloatT
-	χ::SVector{Nlevel, FloatT}  # Energy in J or aJ?
-	g::SVector{Nlevel, IntT}
-	stage::SVector{Nlevel, IntT}
-	label::Vector{String}
+    χ::SVector{Nlevel, FloatT}  # Energy in J or aJ?
+    g::SVector{Nlevel, IntT}
+    stage::SVector{Nlevel, IntT}
+    label::Vector{String}
     lines::Vector{AtomicLine}
     continua::Vector{AtomicContinuum}
 end

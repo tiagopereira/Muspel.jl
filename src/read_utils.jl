@@ -118,17 +118,15 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
         if prof == "prd"
             prd = true
         end
-    elseif prof in ["gauss", "doppler"]
+    elseif prof in ["gaussian", "gauss", "doppler"]
         voigt = false
     else
         error("Unsupported profile type $prof")
     end
     # Energy of the first ionised stage above upper level
     χ∞ = minimum(χ[stage .== stage[up] + 1])
-    # This is not yet working for combining different types of vdW broadening,
-    # will need to make γ_vdW_type, γ_vdW_const, γ_vdW_const vectors in AtomicLine
-    (vdW_type, vdW_const, vdW_exp) = _read_vdW(
-        line["broadening_vanderwaals"], mass * u"kg",
+    (vdW_const, vdW_exp) = _read_vdW(
+        line, mass * u"kg",
         χ[up] * u"J", χ[lo] * u"J", χ∞ * u"J", stage[up],
     )
     quad_stark_const = _read_quadratic_stark(
@@ -137,7 +135,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
 
     return AtomicLine(nλ, χ[up], χ[lo], g[up], g[lo], Aul, Blu, Bul, λ0,
                       f_value, ustrip.(λ), prd, voigt, label[up], label[lo],
-                      vdW_type, vdW_const, vdW_exp, quad_stark_const)
+                      vdW_const, vdW_exp, quad_stark_const)
 end
 
 
@@ -241,15 +239,25 @@ end
 Parse type of van der Waals broadening and return the constant
 and temperature exponent.
 """
-function _read_vdW(data::Dict, mass, χup, χlo, χ∞, Z)
-    @assert "type" in keys(data) "Missing type of van den Waals broadening"
+function _read_vdW_single(data::Dict, mass, χup, χlo, χ∞, Z)
+    keys_input = lowercase.(keys(data))
+    FloatT = typeof(ustrip(χup))
+    @assert "type" in keys_input "Missing type of van den Waals broadening"
     type = lowercase(data["type"])
     if type == "unsold"
-        h_scaling = data["h_coefficient"]
-        he_scaling = data["he_coefficient"]
+        if "h_coefficient" in keys_input
+            h_scaling = data["h_coefficient"]
+        else
+            h_scaling = zero(FloatT)
+        end
+        if "he_coefficient" in keys_input
+            he_scaling = data["he_coefficient"]
+        else
+            he_scaling = zero(FloatT)
+        end
         vdw_const = const_unsold(mass, χup, χlo, χ∞, Z;
                                  H_scaling=h_scaling, He_scaling=he_scaling) * u"m^3 / s"
-        vdw_exp = convert(typeof(h_scaling), 0.3)
+        vdw_exp = convert(FloatT, 0.3)
     elseif type == "abo"  # Barklem
         # Trusting the units
         α = data["α"]["value"]
@@ -266,7 +274,29 @@ function _read_vdW(data::Dict, mass, χup, χlo, χ∞, Z)
     else
         error("Unsupported van der Waals broadening type: $type")
     end
-    return (type, ustrip(vdw_const |> u"m^3 / s"), vdw_exp)
+    return (ustrip(vdw_const |> u"m^3 / s"), vdw_exp)
+end
+
+
+function _read_vdW(line, mass, χup, χlo, χ∞, Z)
+    FloatT = typeof(ustrip(χup))
+    if "broadening_vanderwaals" in keys(line)
+        data = line["broadening_vanderwaals"]
+        if typeof(data) <: Dict
+            data = [data]
+        end
+        nprocs = length(data)
+        arr_const = []
+        arr_exp = []
+        for process in data
+            tmp_const, tmp_exp = _read_vdW_single(process, mass, χup, χlo, χ∞, Z)
+            append!(arr_const, tmp_const)
+            append!(arr_exp, tmp_exp)
+        end
+        return (SVector{nprocs, FloatT}(arr_const), SVector{nprocs, FloatT}(arr_exp))
+    else
+        return (SVector{0, FloatT}(), SVector{0, FloatT}())
+    end
 end
 
 
@@ -278,7 +308,7 @@ function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
         coefficient = data["broadening_stark"]["coefficient"]
         if "C_4" in keys(data)  # C_4 provided explicitly
             C_4 = _assign_unit(data["C4"])
-        else                   # Use C_4 recipe from Traving 1960
+        else                    # Use C_4 recipe from Traving 1960
             C_4 = const_quadratic_stark(mass, χup, χlo, χ∞, Z)
         end
         return ustrip((coefficient * C_4) |> u"m^3 / s")
