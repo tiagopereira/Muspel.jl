@@ -6,42 +6,48 @@ Reading functions.
 """
 Reads atom in YAML format, returns AtomicModel structure
 """
-function read_atom(atom_file)
+function read_atom(atom_file; FloatT=Float64, IntT=Int)
     data = YAML.load_file(atom_file)
     element = Symbol(data["element"]["symbol"])
     Z = elements[element].number
-    mass = ustrip(elements[element].atomic_mass |> u"kg")
+    if "atomic_mass" in keys(data["element"])
+        mass = _assign_unit(data["element"]["symbol"]) |> u"kg"
+    else
+        mass = elements[element].atomic_mass |> u"kg"
+    end
     levels = data["atomic_levels"]
     nlevels = length(levels)
     level_ids = collect(keys(levels))
     # Load and sort levels
     χ = [_assign_unit(level["energy"]) for (_, level) in levels]
-    χ = ustrip(Transparency.wavenumber_to_energy.(χ) .|> u"J")
+    χ = Transparency.wavenumber_to_energy.(χ) .|> u"J"
     idx = sortperm(χ)  # argsort
-    FloatT = eltype(χ)
-    IntT = typeof(Z)
-    χ = SVector{nlevels, FloatT}(χ[idx])
-    g = SVector{nlevels, IntT}([level["g"] for (_, level) in levels][idx])
-    stage = SVector{nlevels, IntT}([level["stage"] for (_, level) in levels][idx])
+    χ = χ[idx]
+    g = [level["g"] for (_, level) in levels][idx]
+    stage = [level["stage"] for (_, level) in levels][idx]
     label = [level["label"] for (_, level) in levels][idx]
     level_ids = level_ids[idx]
     # Continua
     ncont = length(data["radiative_bound_free"])
     continua = Vector{AtomicContinuum}(undef, ncont)
     for (index, cont) in enumerate(data["radiative_bound_free"])
-        continua[index] = read_continuum(cont, χ, stage, level_ids)
+        continua[index] = read_continuum(cont, χ, stage, level_ids;
+                                         FloatT=FloatT, IntT=IntT)
     end
     # Lines
     nlines = length(data["radiative_bound_bound"])
     lines = Vector{AtomicLine}(undef, nlines)
     for (index, line) in enumerate(data["radiative_bound_bound"])
-        lines[index] = read_line(line, χ, g, stage, level_ids, label, mass)
+        lines[index] = read_line(line, χ, g, stage, level_ids, label, mass;
+                                 FloatT=FloatT, IntT=IntT)
     end
     # ...
     # Collisions
     # ...
-    return AtomicModel{nlevels, FloatT, IntT}(element, nlevels, 1, ncont, Z, mass,
-                                              χ, g, stage, label, lines, continua)
+    # Package things nicely and convert to types
+    return AtomicModel{nlevels, FloatT, IntT}(element, nlevels, nlines, ncont, Z,
+                                              ustrip(mass), ustrip.(χ), g, stage,
+                                              label, lines, continua)
 end
 
 
@@ -49,16 +55,17 @@ end
 Reads continuum transition data in a Dict read from a YAML-formatted atom file.
 Needs level energies χ, ionisation stages, and level ids from atom file.
 """
-function read_continuum(cont::Dict, χ, stage, level_ids)
+function read_continuum(cont::Dict, χ, stage, level_ids; FloatT=Float64, IntT=Int)
     λedge, up, lo = _read_transition(cont, χ, level_ids)
     # Explicit and hydrogenic cases
     if "cross_section" in keys(cont)
         tmp = reduce(hcat, cont["cross_section"]["value"])
-        λ = ustrip.((tmp[1, :] .* uparse(cont["cross_section"]["unit"][1])) .|> u"nm")
-        σ = ustrip.((tmp[2, :] .* uparse(cont["cross_section"]["unit"][2])) .|> u"m^2")
+        λ = (tmp[1, :] .* uparse(cont["cross_section"]["unit"][1])) .|> u"nm"
+        σ = (tmp[2, :] .* uparse(cont["cross_section"]["unit"][2])) .|> u"m^2"
         idx = sortperm(λ)
         λ = λ[idx]
         σ = σ[idx]
+        nλ = length(λ)
     elseif "cross_section_hydrogenic" in keys(cont)
         tmp = cont["cross_section_hydrogenic"]
         nλ = tmp["nλ"]
@@ -67,13 +74,13 @@ function read_continuum(cont::Dict, χ, stage, level_ids)
         σ0 = _assign_unit(tmp["σ_peak"])
         λ = LinRange(λmin, λedge, nλ)
         Z_eff = stage[up] - 1
-        n_eff = Transparency.n_eff(χ[up] * u"J", χ[lo] * u"J", Z_eff)
-        σ = hydrogenic_bf_σ_scaled.(σ0, λ * u"nm", λedge * u"nm", Z_eff, n_eff)
-        σ = ustrip(σ .|> u"m^2")
+        n_eff = Transparency.n_eff(χ[up], χ[lo], Z_eff)
+        σ = hydrogenic_bf_σ_scaled.(σ0, λ, λedge, Z_eff, n_eff) .|> u"m^-2"
     else
         error("Photoionisation cross section data missing")
     end
-    return AtomicContinuum(λedge, up, lo, σ, λ)
+    return AtomicContinuum{nλ, FloatT, IntT}(
+        up, lo, nλ, ustrip(λedge), ustrip.(σ), ustrip.(λ))
 end
 
 
@@ -82,16 +89,16 @@ Reads spectral line data in a Dict read from a YAML-formatted atom file.
 Needs level energies χ, ionisation stages, labels, level ids and
 atomic mass from atom file.
 """
-function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
+function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
+                   FloatT=Float64, IntT=IntT)
     λ0, up, lo = _read_transition(line, χ, level_ids)
-    Aul = _assign_unit(line["γ_rad"])
-    Bul = ustrip(calc_Bji(λ0 * u"nm", Aul))
-    Aul = ustrip(Aul)
+    Aul = _assign_unit(line["γ_rad"]) |> u"s^-1"
+    Bul = calc_Bji(λ0, Aul) |> u"m^3 / J"
     Blu = g[up] / g[lo] * Bul
     waves = line["wavelengths"]
     f_value = line["f_value"]
     if "data" in keys(waves)
-        λ = _assign_unit(waves["data"])
+        λ = _assign_unit(waves["data"]) .|> u"nm"
     elseif "type" in keys(waves)
         if waves["type"] == "RH"
             qcore = waves["qcore"]
@@ -99,14 +106,14 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
             nλ = waves["nλ"]
             vξ = _assign_unit(waves["vmicro_char"])
             asymm = asymm=waves["asymmetric"]
-            λ = calc_λline_RH(λ0 * u"nm", nλ, qcore, qwing, vξ; asymm=asymm)
+            λ = calc_λline_RH(λ0, nλ, qcore, qwing, vξ; asymm=asymm)
         elseif waves["type"] == "MULTI"
             qcore = waves["q0"]
             qwing = waves["qmax"]
             nλ = waves["nλ"]
             vξ = _assign_unit(waves["qnorm"])
             asymm = asymm=waves["asymmetric"]
-            λ = calc_λline_MULTI(λ0 * u"nm", nλ, q0, qmax, vξ; asymm=asymm)
+            λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=asymm)
         else
             error("Unrecognised wavelength type")
         end
@@ -125,17 +132,15 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
     end
     # Energy of the first ionised stage above upper level
     χ∞ = minimum(χ[stage .== stage[up] + 1])
-    (vdW_const, vdW_exp) = _read_vdW(
-        line, mass * u"kg",
-        χ[up] * u"J", χ[lo] * u"J", χ∞ * u"J", stage[up],
-    )
-    quad_stark_const = _read_quadratic_stark(
-        line, mass * u"kg", χ[up] * u"J", χ[lo] * u"J", χ∞ * u"J", stage[up],
-    )
+    (vdW_const, vdW_exp) = _read_vdW(line, mass, χ[up], χ[lo], χ∞, stage[up])
+    n_vdW = length(vdW_const)
+    quad_stark_const = _read_quadratic_stark(line, mass, χ[up], χ[lo], χ∞, stage[up])
 
-    return AtomicLine(nλ, χ[up], χ[lo], g[up], g[lo], Aul, Blu, Bul, λ0,
-                      f_value, ustrip.(λ), prd, voigt, label[up], label[lo],
-                      vdW_const, vdW_exp, quad_stark_const)
+    return AtomicLine{n_vdW, FloatT, IntT}(nλ, ustrip(χ[up]), ustrip(χ[lo]), g[up],
+                                           g[lo], ustrip(Aul),ustrip(Blu), ustrip(Bul),
+                                           ustrip(λ0), f_value, ustrip.(λ), prd, voigt,
+                                           label[up], label[lo], vdW_const, vdW_exp,
+                                           quad_stark_const)
 end
 
 
@@ -228,7 +233,7 @@ function _read_transition(data::Dict, χ, level_ids)
     nlevels = length(χ)
     i = (1:nlevels)[level_ids .== data["transition"][1]][1]
     j = (1:nlevels)[level_ids .== data["transition"][2]][1]
-    λ0 = ustrip(h * c_0/ (abs(χ[i] - χ[j]))u"J" |> u"nm")
+    λ0 = (h * c_0/ abs(χ[i] - χ[j])) |> u"nm"
     up = max(i, j)
     lo = min(i, j)
     return λ0, up, lo
@@ -241,23 +246,22 @@ and temperature exponent.
 """
 function _read_vdW_single(data::Dict, mass, χup, χlo, χ∞, Z)
     keys_input = lowercase.(keys(data))
-    FloatT = typeof(ustrip(χup))
     @assert "type" in keys_input "Missing type of van den Waals broadening"
     type = lowercase(data["type"])
     if type == "unsold"
         if "h_coefficient" in keys_input
             h_scaling = data["h_coefficient"]
         else
-            h_scaling = zero(FloatT)
+            h_scaling = 0.0
         end
         if "he_coefficient" in keys_input
             he_scaling = data["he_coefficient"]
         else
-            he_scaling = zero(FloatT)
+            he_scaling = 0.0
         end
         vdw_const = const_unsold(mass, χup, χlo, χ∞, Z;
                                  H_scaling=h_scaling, He_scaling=he_scaling) * u"m^3 / s"
-        vdw_exp = convert(FloatT, 0.3)
+        vdw_exp = 0.3
     elseif type == "abo"  # Barklem
         # Trusting the units
         α = data["α"]["value"]
@@ -279,7 +283,6 @@ end
 
 
 function _read_vdW(line, mass, χup, χlo, χ∞, Z)
-    FloatT = typeof(ustrip(χup))
     if "broadening_vanderwaals" in keys(line)
         data = line["broadening_vanderwaals"]
         if typeof(data) <: Dict
@@ -293,9 +296,9 @@ function _read_vdW(line, mass, χup, χlo, χ∞, Z)
             append!(arr_const, tmp_const)
             append!(arr_exp, tmp_exp)
         end
-        return (SVector{nprocs, FloatT}(arr_const), SVector{nprocs, FloatT}(arr_exp))
+        return (SVector{nprocs, Float64}(arr_const), SVector{nprocs, Float64}(arr_exp))
     else
-        return (SVector{0, FloatT}(), SVector{0, FloatT}())
+        return (SVector{0, Float64}(), SVector{0, Float64}())
     end
 end
 
@@ -313,6 +316,6 @@ function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
         end
         return ustrip((coefficient * C_4) |> u"m^3 / s")
     else
-        return zero(typeof(ustrip(mass)))
+        return 0.0
     end
 end

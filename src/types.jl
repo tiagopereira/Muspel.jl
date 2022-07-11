@@ -62,13 +62,16 @@ struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
     λedge::FloatT  # in nm
     σ::SVector{Nλ, FloatT}  # m^-2
     λ::SVector{Nλ, FloatT}  # nm
-    function AtomicContinuum(λedge, up, lo, σ, λ)
-        @assert typeof(σ) <: AbstractVector{T} where T <: AbstractFloat
-        @assert typeof(λ) <: AbstractVector{T} where T <: AbstractFloat
-        @assert length(σ) == length(λ)
-        nλ = length(σ)
-        return new{nλ, eltype(σ), typeof(nλ)}(up, lo, nλ, λedge, σ, λ)
-    end
+end
+
+
+struct AtomicContinuum2{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
+    up::IntT
+    lo::IntT
+    nλ::IntT
+    λedge::FloatT  # in nm
+    σ::SVector{Nλ, FloatT}  # m^-2
+    λ::SVector{Nλ, FloatT}  # nm
 end
 
 
