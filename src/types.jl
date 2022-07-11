@@ -65,16 +65,6 @@ struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-struct AtomicContinuum2{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
-    up::IntT
-    lo::IntT
-    nλ::IntT
-    λedge::FloatT  # in nm
-    σ::SVector{Nλ, FloatT}  # m^-2
-    λ::SVector{Nλ, FloatT}  # nm
-end
-
-
 struct AtomicModel{Nlevel, FloatT <: AbstractFloat, IntT <: Integer}
     element::Symbol
     nlevels::IntT
