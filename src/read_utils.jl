@@ -11,7 +11,7 @@ function read_atom(atom_file; FloatT=Float64, IntT=Int)
     element = Symbol(data["element"]["symbol"])
     Z = elements[element].number
     if "atomic_mass" in keys(data["element"])
-        mass = _assign_unit(data["element"]["symbol"]) |> u"kg"
+        mass = _assign_unit(data["element"]["atomic_mass"]) |> u"kg"
     else
         mass = elements[element].atomic_mass |> u"kg"
     end
@@ -69,13 +69,13 @@ function read_continuum(cont::Dict, χ, stage, level_ids; FloatT=Float64, IntT=I
     elseif "cross_section_hydrogenic" in keys(cont)
         tmp = cont["cross_section_hydrogenic"]
         nλ = tmp["nλ"]
-        λmin = ustrip(_assign_unit(tmp["λ_min"]) |> u"nm")
+        λmin = _assign_unit(tmp["λ_min"]) |> u"nm"
         @assert λmin < λedge "Minimum wavelength not shorter than bf edge"
         σ0 = _assign_unit(tmp["σ_peak"])
         λ = LinRange(λmin, λedge, nλ)
         Z_eff = stage[up] - 1
         n_eff = Transparency.n_eff(χ[up], χ[lo], Z_eff)
-        σ = hydrogenic_bf_σ_scaled.(σ0, λ, λedge, Z_eff, n_eff) .|> u"m^-2"
+        σ = σ_hydrogenic_bf_scaled.(σ0, λ, λedge, Z_eff, n_eff) .|> u"m^2"
     else
         error("Photoionisation cross section data missing")
     end
