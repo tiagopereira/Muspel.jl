@@ -105,15 +105,14 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
             qwing = waves["qwing"]
             nλ = waves["nλ"]
             vξ = _assign_unit(waves["vmicro_char"])
-            asymm = asymm=waves["asymmetric"]
+            asymm = waves["asymmetric"]
             λ = calc_λline_RH(λ0, nλ, qcore, qwing, vξ; asymm=asymm)
         elseif waves["type"] == "MULTI"
-            qcore = waves["q0"]
-            qwing = waves["qmax"]
+            q0 = waves["q0"]
+            qmax = waves["qmax"]
             nλ = waves["nλ"]
             vξ = _assign_unit(waves["qnorm"])
-            asymm = asymm=waves["asymmetric"]
-            λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=asymm)
+            λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=false)
         else
             error("Unrecognised wavelength type")
         end
