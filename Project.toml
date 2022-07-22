@@ -16,7 +16,7 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
 AtomicData = "^0.1.2"
-Interpolations = "^0.13.6"
+Interpolations = "^0.13.6, 0.14"
 PeriodicTable = "^1.1.2"
 PhysicalConstants = "^0.2.1"
 ProgressMeter = "^1.7.2"
