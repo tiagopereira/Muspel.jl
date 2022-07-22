@@ -18,14 +18,14 @@ using Unitful
     @testset "Tables_σ" begin
         @test_throws MethodError Tables_σ(λ, collect(log_temp), log_ne, atoms)
         @test_throws MethodError Tables_σ(λ, log_temp, collect(log_ne), atoms)
-        @test length(table.table_a) == nλ
-        @test table.table_a[1](501.0, 6001.0) ≈ 1.51064785e-29
+        @test length(table.table_nh) == nλ
+        @test table.table_nh[1](501.0, 6001.0) ≈ 1.51064785e-29
     end
     @testset "α_cont" begin
         @test α_cont(table, 10, λ[10], 1e4, 2.0e19, 1.0e20, 1.0e20, 2.0e19) ≈ 4.2467969689e-9
     end
     @testset "σ_atoms_bf_tables" begin
-        @test σ_atom_tables[1][1](50.427)/abund[atoms[1].element] == 6.783e-22
+        @test σ_atom_tables[1][1](50.427) / abund[atoms[1].element] == 6.783e-22
         @test σ_atom_tables[1][1](50.428) == 0
         @test σ_atom_tables[1][1](12.7) == 0
     end
