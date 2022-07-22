@@ -33,7 +33,7 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
+struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     nλ::IntT
     χup::FloatT
     χlo::FloatT
@@ -44,14 +44,14 @@ struct AtomicLine{FloatT <: AbstractFloat, IntT <: Integer}
     Bul::FloatT
     λ0::FloatT  # in nm
     f_value::FloatT
-    # Extra things needed:
-    # -van der Waals recipe
-    # -Barklem coefficients
-    # -wavelengths
-    # -Nlambda, qcore, qwing, ?
-    # -PRD, Voigt, Gauss
-    # -ASYMM, SYMM?
-    # -Other terms for polarimetry
+    λ::Vector{FloatT}
+    PRD::Bool
+    Voigt::Bool
+    label_up::String
+    label_lo::String
+    γ_vdW_const::SVector{N, FloatT}
+    γ_vdW_exp::SVector{N, FloatT}
+    γ_quad_stark_const::FloatT
 end
 
 
@@ -59,26 +59,9 @@ struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
     up::IntT
     lo::IntT
     nλ::IntT
-    λmin::FloatT
+    λedge::FloatT  # in nm
     σ::SVector{Nλ, FloatT}  # m^-2
     λ::SVector{Nλ, FloatT}  # nm
-
-    function AtomicContinuum(up, lo; kind="explicit", σ=nothing, λ=nothing,
-                              λmin=nothing, nλ=nothing, σmax=nothing)
-        if kind == "explicit"
-            @assert typeof(σ) <: AbstractVector{T} where T <: AbstractFloat
-            @assert typeof(λ) <: AbstractVector{T} where T <: AbstractFloat
-            @assert length(σ) == length(λ)
-            nλ = length(σ)
-            λmin = minimum(λ)
-            new{nλ, eltype(σ), eltype(nλ)}(up, lo, nλ, λmin, σ, λ)
-        elseif kind == "hydrogenic"
-            # See SolarMCRT transition_λ and sample_λ_boundfree
-            error("Hydrogenic not yet supported")
-        else
-            error("Unknown AtomicContinuum kind $kind")
-        end
-    end
 end
 
 
@@ -89,10 +72,10 @@ struct AtomicModel{Nlevel, FloatT <: AbstractFloat, IntT <: Integer}
     ncontinua::IntT
     Z::IntT
     mass::FloatT
-	χ::SVector{Nlevel, FloatT}  # Energy in J or aJ?
-	g::SVector{Nlevel, IntT}
-	stage::SVector{Nlevel, IntT}
-	label::Vector{String}
-    #lines::Vector{AtomicLine{FloatT, IntT}}
+    χ::SVector{Nlevel, FloatT}  # Energy in J or aJ?
+    g::SVector{Nlevel, IntT}
+    stage::SVector{Nlevel, IntT}
+    label::Vector{String}
+    lines::Vector{AtomicLine}
     continua::Vector{AtomicContinuum}
 end
