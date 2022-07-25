@@ -10,10 +10,10 @@ using Unitful
     H_empty = read_atom("test_atoms/H_test_empty.yaml")
     atoms = Vector{AtomicModel}([He, H, H_empty])
     σ_atom_tables = σ_atoms_bf_tables(atoms)
-    λ = [i*50.0 for i in 2:201];
+    λ = collect(LinRange(100, 10050, 200))
     nλ = length(λ)
-    log_ne = 15.0:0.05:20.0;
-    log_temp = 3.0:0.015:6.0;
+    log_ne = 15.0:0.05:20.0
+    log_temp = 3.0:0.015:6.0
     table = Tables_σ(λ, log_temp, log_ne, atoms)
     @testset "Tables_σ" begin
         @test_throws MethodError Tables_σ(λ, collect(log_temp), log_ne, atoms)

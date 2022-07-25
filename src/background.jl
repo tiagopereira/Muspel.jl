@@ -42,10 +42,10 @@ struct Tables_σ{T0 <: Vector{Interpolations.Extrapolation}}
     table_nh::T0
     table_ne::T0
     function Tables_σ(
-        λ::Vector{T},
-        log_temp::StepRangeLen{T},
-        log_ne::StepRangeLen{T},
-        atoms::Vector{AtomicModel}
+        λ::AbstractVector{T},
+        log_temp::AbstractRange{T},
+        log_ne::AbstractRange{T},
+        atoms::AbstractVector{AtomicModel}
     ) where T <: AbstractFloat
         σ_atom_tables = σ_atoms_bf_tables(atoms)
         λ_u = λ * u"nm"
