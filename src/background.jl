@@ -13,11 +13,11 @@ const HC_K = ustrip((h * c_0 / k_B) |> u"K * nm")
 
 """
     function Tables_σ(
-        λ::Vector{T},
-        log_temp::StepRangeLen,
-        log_ne::StepRangeLen,
-        atoms::Vector{AtomicModel}
-    ) where T<:AbstractFloat
+        λ::AbstractVector{T},
+        log_temp::AbstractRange{T},
+        log_ne::AbstractRange{T},
+        atoms::AbstractVector{AtomicModel}
+    ) where T <: AbstractFloat
 
 Structure for the cross-section interpolation tables used for the background extinction.
 Each field is an array of CubicSplineInterpolation functions. There is one function per
@@ -113,7 +113,7 @@ end
     ) where T <: AbstractFloat
 
     function α_cont(
-        atoms::Vector{AtomicModel},
+        atoms::AbstractVector{AtomicModel},
         σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
         λ::T,
         temperature::T,
@@ -185,7 +185,7 @@ function α_cont(
 end
 
 function α_cont(
-    atoms::Vector{AtomicModel},
+    atoms::AbstractVector{AtomicModel},
     σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
     λ::T,
     temperature::T,
@@ -287,7 +287,7 @@ end
 ----------------------------------------------------------------------------=#
 
 """
-    function σ_atoms_bf_tables(atoms::Vector{AtomicModel})
+    function σ_atoms_bf_tables(atoms::AbstractVector{AtomicModel})
 
 Returns interpolation functions for the bound-free cross section data multiplied with
 abundances for each atom.
@@ -299,7 +299,7 @@ abundances for each atom.
 - `σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}}`:
     Interpolation functions.
 """
-function σ_atoms_bf_tables(atoms::Vector{AtomicModel})
+function σ_atoms_bf_tables(atoms::AbstractVector{AtomicModel})
     σ_atom_tables = [
         Vector{Interpolations.FilledExtrapolation}(
             undef, length(atom.continua)) for atom in atoms
@@ -320,7 +320,7 @@ end
 """
     function σ_atoms_bf(
         σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
-        atoms::Vector{AtomicModel},
+        atoms::AbstractVector{AtomicModel},
         λ::T,
         temperature::T,
         electron_density::T
@@ -343,7 +343,7 @@ To get total bound-free extinction multiply with hydrogen_density.
 """
 function σ_atoms_bf(
     σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
-    atoms::Vector{AtomicModel},
+    atoms::AbstractVector{AtomicModel},
     λ::T,
     temperature::T,
     electron_density::T
@@ -362,7 +362,7 @@ end
 """
     function α_atoms_bf(
         σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
-        atoms::Vector{AtomicModel},
+        atoms::AbstractVector{AtomicModel},
         λ::T,
         temperature::T,
         electron_density::T,
@@ -385,7 +385,7 @@ Computes the extinction per meter from continua in atoms.
 """
 function α_atoms_bf(
     σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
-    atoms::Vector{AtomicModel},
+    atoms::AbstractVector{AtomicModel},
     λ::T,
     temperature::T,
     electron_density::T,
