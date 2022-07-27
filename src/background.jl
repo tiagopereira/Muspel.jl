@@ -75,7 +75,9 @@ struct Tables_σ{T0 <: Vector{Interpolations.Extrapolation}}
         end
         ν_u = c_0 ./ λ_u
         for iT in 1:nT
-            @. table_ne[:, iT] = ustrip(σ_hydrogenic_ff(ν_u, temperature_u[iT], 1) |> u"m^5")
+            @. table_ne[:, iT] = ustrip(
+                σ_hydrogenic_ff(ν_u, temperature_u[iT], 1) |> u"m^5"
+            )
         end
         table_nh = [CubicSplineInterpolation(
                           (log_temp, log_ne), table_nh[iλ, :, :], extrapolation_bc=Line()
@@ -94,16 +96,7 @@ end
 ----------------------------------------------------------------------------=#
 
 """
-    function α_cont(
-        λ::Unitful.Length,
-        temperature::Unitful.Temperature,
-        electron_density::NumberDensity,
-        h_ground_density::NumberDensity,
-        h_neutral_density::NumberDensity,
-        proton_density::NumberDensity
-    )
-
-    function α_cont(
+    function α_cont_no_atoms(
         λ::T,
         temperature::T,
         electron_density::T,
@@ -111,55 +104,21 @@ end
         h_neutral_density::T,
         proton_density::T
     ) where T <: AbstractFloat
-
-    function α_cont(
-        atoms::AbstractVector{AtomicModel},
-        σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
-        λ::T,
-        temperature::T,
-        electron_density::T,
-        h_ground_density::T,
-        h_neutral_density::T,
-        proton_density::T
-    ) where T <: AbstractFloat
-
 
 Calculates continuum extinction according to recipe in RH using functions from Transparecy.
-Optionally includes continua from atom files. Atoms are treated in LTE.
 
 # Arguments
-- `atoms`: (optional) Atoms with continua to include.
-- `σ_atom_tables`: (optional) Interpolation functions from σ_atoms_bf_tables().
-- `λ`: Wavelength in nm or with a Unitful.Length unit.
-- `temperature`: Unit K.
-- `electron_density`: Number density, unit m^-3.
-- `h_ground_density`: Number density of hydrogen in the ground state.
-- `h_neutral_density`: Number density of neutral hydrogen.
-- `proton_density`: Number density, unit m^-3.
+- `λ`: Wavelength in nm.
+- `temperature`: Temperature in K.
+- `electron_density`: Electron number density in m^-3.
+- `h_ground_density`: Number density of hydrogen in the ground state, unit m^-3.
+- `h_neutral_density`: Number density of neutral hydrogen, unit m^-3.
+- `proton_density`: Proton number density in m^-3.
 
 # Returns
-- `α`: Continuous extinction (Float) in m^-1. Has units if input had units.
-
+- `α`: Continuous extinction (Float) in m^-1.
 """
-function α_cont(
-    λ::Unitful.Length,
-    temperature::Unitful.Temperature,
-    electron_density::NumberDensity,
-    h_ground_density::NumberDensity,
-    h_neutral_density::NumberDensity,
-    proton_density::NumberDensity
-)
-    α = α_hminus_ff(λ, temperature, h_neutral_density,  electron_density)
-    α += α_hminus_bf(λ, temperature, h_neutral_density, electron_density)
-    α += α_hydrogenic_ff(c_0 / λ, temperature, electron_density, proton_density, 1)
-    α += α_h2plus_ff(λ, temperature, h_neutral_density, proton_density)
-    α += α_h2plus_bf(λ, temperature, h_neutral_density, proton_density)
-    α += α_thomson(electron_density)
-    α += α_rayleigh_h(λ, h_ground_density)
-    return α
-end
-
-function α_cont(
+function α_cont_no_atoms(
     λ::T,
     temperature::T,
     electron_density::T,
@@ -173,17 +132,45 @@ function α_cont(
     h_ground_density *= u"m^-3"
     h_neutral_density *= u"m^-3"
     proton_density *= u"m^-3"
-    α = α_cont(
-        λ,
-        temperature,
-        electron_density,
-        h_ground_density,
-        h_neutral_density,
-        proton_density
-    )
+    α = α_hminus_ff(λ, temperature, h_neutral_density,  electron_density)
+    α += α_hminus_bf(λ, temperature, h_neutral_density, electron_density)
+    α += α_hydrogenic_ff(c_0 / λ, temperature, electron_density, proton_density, 1)
+    α += α_h2plus_ff(λ, temperature, h_neutral_density, proton_density)
+    α += α_h2plus_bf(λ, temperature, h_neutral_density, proton_density)
+    α += α_thomson(electron_density)
+    α += α_rayleigh_h(λ, h_ground_density)
     return ustrip(α |> u"m^-1")
 end
 
+"""
+function α_cont(
+    atoms::AbstractVector{AtomicModel},
+    σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
+    λ::T,
+    temperature::T,
+    electron_density::T,
+    h_ground_density::T,
+    h_neutral_density::T,
+    proton_density::T
+) where T <: AbstractFloat
+
+
+Calculates continuum extinction according to recipe in RH using functions from Transparecy.
+Includes continua from atom files. Atoms are treated in LTE.
+
+# Arguments
+- `atoms`: Atoms with continua to include.
+- `σ_atom_tables`: Interpolation functions from σ_atoms_bf_tables().
+- `λ`: Wavelength in nm.
+- `temperature`: Temperature in K.
+- `electron_density`: Electron number density in m^-3.
+- `h_ground_density`: Number density of hydrogen in the ground state, unit m^-3.
+- `h_neutral_density`: Number density of neutral hydrogen, unit m^-3.
+- `proton_density`: Proton number density in m^-3.
+
+# Returns
+- `α`: Continuous extinction (Float) in m^-1.
+"""
 function α_cont(
     atoms::AbstractVector{AtomicModel},
     σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
@@ -196,7 +183,7 @@ function α_cont(
 ) where T <: AbstractFloat
     α = α_atoms_bf(
         σ_atom_tables, atoms, λ, temperature, electron_density, h_neutral_density)
-    α += α_cont(
+    α += α_cont_no_atoms(
         λ,
         temperature,
         electron_density,
@@ -208,7 +195,7 @@ function α_cont(
 end
 
 """
-    function α_cont(
+    function α_cont_fromtables(
         tables::Tables_σ,
         iλ::Integer,
         λ::T,
@@ -219,17 +206,24 @@ end
         proton_density::T
     ) where T<: AbstractFloat
 
-    function α_cont(tables::Tables_σ, iλ::Integer, args...) where args <: Unitful.Quantity
-
-If given a Tables_σ struct, the function returns the extinction computed from
-interpolation tables of the cross-sections. This is significally faster than the
-non-tabulated version when the computation includes many atomic continua.
+Computes the extinction using interpolation tables of the cross-sections. This is
+significally faster than the non-tabulated version when the computation includes atomic
+continua.
 
 # Arguments
-    - `tables`: Pre-computed interpolation functions for "cross-sections".
-    - `iλ`: The index in `tables` for the wavelength λ.
+- `tables`: Pre-computed interpolation functions for "cross-sections".
+- `iλ`: The index in `tables` for the wavelength λ.
+- `λ`: Wavelength in nm.
+- `temperature`: Temperature in K.
+- `electron_density`: Electron number density in m^-3.
+- `h_ground_density`: Number density of hydrogen in the ground state, unit m^-3.
+- `h_neutral_density`: Number density of neutral hydrogen, unit m^-3.
+- `proton_density`: Proton number density in m^-3.
+
+# Returns
+- `α`: Continuous extinction (Float) in m^-1.
 """
-function α_cont(
+function α_cont_fromtables(
     tables::Tables_σ,
     iλ::Integer,
     λ::T,
@@ -243,41 +237,17 @@ function α_cont(
     log_ne = log10(electron_density)
     α = tables.table_nh[iλ](log_temp, log_ne) * h_neutral_density
     α += tables.table_ne[iλ](log_temp) * electron_density * proton_density
-    α += ustrip(α_h2plus_ff(
-            λ * u"nm",
-            temperature * u"K",
-            h_neutral_density * u"m^-3",
-            proton_density * u"m^-3"
-    )|>u"m^-1")
-    α += ustrip(α_h2plus_bf(
-        λ * u"nm",
-        temperature * u"K",
-        h_neutral_density * u"m^-3",
-        proton_density * u"m^-3"
-    )|>u"m^-1")
-    α += ustrip(α_thomson(electron_density * u"m^-3") |> u"m^-1")
-    α += ustrip(α_rayleigh_h(λ*u"nm", h_ground_density * u"m^-3") |> u"m^-1")
-    return α
-end
-
-function α_cont(
-    tables::Tables_σ,
-    iλ::Integer,
-    λ::Unitful.Length,
-    temperature::Unitful.Temperature,
-    electron_density::NumberDensity,
-    h_ground_density::NumberDensity,
-    h_neutral_density::NumberDensity,
-    proton_density::NumberDensity
-)
-    log_temp = log10(ustrip(temperature |> u"K"))
-    log_ne = log10(ustrip(electron_density |> u"m^-3"))
-    α = (tables.table_nh[iλ](log_temp, log_ne) * u"m^2" * h_neutral_density) |> u"m^-1"
-    α += (tables.table_ne[iλ](log_temp)u"m^5" * electron_density * proton_density) |> u"m^-1"
-    α += α_h2plus_ff(λ, temperature, h_neutral_density, proton_density)
-    α += α_h2plus_bf(λ, temperature, h_neutral_density, proton_density)
-    α += α_thomson(electron_density)
-    α += α_rayleigh_h(λ, h_ground_density)
+    λ *= u"nm"
+    temperature *= u"K"
+    electron_density *= u"m^-3"
+    h_ground_density *= u"m^-3"
+    h_neutral_density *= u"m^-3"
+    proton_density *= u"m^-3"
+    α_u = α_h2plus_ff(λ, temperature, h_neutral_density, proton_density)
+    α_u += α_h2plus_bf(λ, temperature, h_neutral_density, proton_density)
+    α_u += α_thomson(electron_density)
+    α_u += α_rayleigh_h(λ, h_ground_density)
+    α += ustrip(α_u |> u"m^-1")
     return α
 end
 
