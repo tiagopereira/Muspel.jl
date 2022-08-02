@@ -9,6 +9,7 @@ element:
 atomic_levels:
   lev1: {energy: {value: 0.0, unit: cm^-1}, g: 1, stage: 1, label: HE I 1S2 1SE}
   lev2: {energy: {value: 159856.069, unit: cm^-1}, g: 3, stage: 1, label: HE I 1S 2S 3SE}
+  lev3: {energy: {value: 166277.546, unit: cm^-1}, g: 1, stage: 1, label: HE I 1S 2S 1SE}
   lev1_ion1: {energy: {value: 198305.469, unit: cm^-1}, g: 2, stage: 2, label: HE II 1S 2SE}
   lev7: {energy: {value: 171135.0, unit: cm^-1}, g: 3, stage: 1, label: HE I 1S 2P 1PO}
 
