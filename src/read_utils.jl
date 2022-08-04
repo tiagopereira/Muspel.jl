@@ -311,7 +311,7 @@ function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
     if "broadening_stark" in keys(data)
         coefficient = data["broadening_stark"]["coefficient"]
         if "C_4" in keys(data)  # C_4 provided explicitly
-            C_4 = _assign_unit(data["C4"])
+            C_4 = _assign_unit(data["C_4"])
         else                    # Use C_4 recipe from Traving 1960
             C_4 = const_quadratic_stark(mass, χup, χlo, χ∞, Z)
         end
