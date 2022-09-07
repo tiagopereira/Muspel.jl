@@ -322,7 +322,7 @@ function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
         end
         if "C_4" in keys(data_stark)  # C_4 provided explicitly, no temp dependence
             C_4 = _assign_unit(data_stark["C_4"])
-            tmp_exp = 1.0
+            tmp_exp = 0.0
         else                    # Use C_4 recipe from Traving 1960, prop to T^1/6
             C_4 = const_quadratic_stark(mass, χup, χlo, χ∞, Z)
             tmp_exp = 1/6
