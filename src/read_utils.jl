@@ -112,6 +112,9 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
             q0 = waves["q0"]
             qmax = waves["qmax"]
             nλ = waves["nλ"]
+            if iseven(nλ)   # ensure odd number of wavelengths per line
+                nλ += 1
+            end
             vξ = _assign_unit(waves["qnorm"])
             λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=false)
         else
@@ -188,7 +191,6 @@ function calc_λline_MULTI(λ0::Unitful.Length{T}, nλ, q0::T, qmax::T, vξ::Uni
     q = Vector{T}(undef, nλ)
 
     ten = 10 * one(T)
-    al10 = log(ten)
     half = one(T) / 2
     a = ten ^ (q0 + half)
     xmax = log10(a * max(half, qmax - q0 - half))
