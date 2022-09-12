@@ -25,7 +25,6 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test H.Z == 1
         @test H.mass == 1.6738233791328e-27
         @test H_empty.mass == 1.674e-27
-        @test length(H.χ) == length(H_empty.χ) == 4
         @test H.χ[1] == 0.0
         @test all(H.χ[2:end] ≈ [1.6340148841677004e-18, 1.9366102411805722e-18,
                                 2.1786865188450865e-18])
@@ -76,9 +75,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         )
         cont = Dict("cross_section"=>cs, "transition"=> tr)
         continuum = Muspel.read_continuum(cont, χ, stage, level_ids)
-        @test continuum.nλ == 3
-        @test length(continuum.λ) == 3
-        @test length(continuum.σ) == 3
+        @test continuum.nλ == length(continuum.λ)
         # Sorted wavelengths and crossections
         @test all((continuum.λ[2:end] .- continuum.λ[1:end-1]) .> 0)
         for i in 1:3
@@ -220,7 +217,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         )
     end
     @testset "calc_λline_MULTI" begin
-        # Wavelength values are against previous implementation
+        # Wavelength values tested against previous implementation:
         λ0 = 500.0u"nm"
         nλ = 4
         q0 = 3.0
@@ -250,8 +247,6 @@ import PhysicalConstants.CODATA2018: h, c_0
         )
         dw = wav[2:end] - wav[1:end-1]
         @test all(isapprox.(dw[1], dw, rtol=1e-3))
-        # None of the above:
-        @test all(Muspel.calc_λline_MULTI(λ0, nλ, -1.0, 2.0, vξ) .== 500.0u"nm")
         # Single precision:
         @test_throws MethodError Muspel.calc_λline_MULTI(λ0, nλ, 1f0, qmax, vξ)
         wav = Muspel.calc_λline_MULTI(5f3u"Å", nλ, 3.0f1, 6.0f2, 8.0f3u"m/s")
@@ -266,7 +261,6 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test_throws MethodError Muspel._assign_unit(Dict("value"=>"m", "unit"=>1.0))
     end
     @testset "_read_transition" begin
-        # Check a sample
         dE = (ustrip(c_0 |> u"nm/s") * h / u"s") |> u"aJ"
         χ = [0., 10, 50, (10 + ustrip(dE))]*u"aJ"
         level_ids = ["y", "a", "b", "c"]
@@ -274,7 +268,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         w, up, lo =  Muspel._read_transition(data, χ, level_ids)
         @test w ≈ 1.0u"nm"
         @test (up, lo) == (4, 2)
-        # up > lo
+        # Output order, up > lo:
         data = Dict("transition" => ["c", "a"])
         w, up, lo =  Muspel._read_transition(data, χ, level_ids)
         @test (up, lo) == (4, 2)
@@ -285,18 +279,14 @@ import PhysicalConstants.CODATA2018: h, c_0
     χ∞ = 2.18u"aJ"
     Z = 1
     @testset "_read_vdW_single" begin
+        @test_throws AssertionError Muspel._read_vdW_single(Dict(), mass, χup, χlo, χ∞, Z)
+        @test_throws ErrorException Muspel._read_vdW_single(
+                                                   Dict("type"=>"s"), mass, χup, χlo, χ∞, Z)
+        # type = unsold
         data_1a = Dict("type"=>"Unsold")
         data_1b = Dict("type"=>"unsold", "h_coefficient"=>1.)
         data_1c = Dict("type"=>"unsold", "he_coefficient"=>1.)
         data_1d = Dict("type"=>"unsold", "h_coefficient"=>0.4, "he_coefficient"=>0.5)
-        data_2 = Dict("type"=>"ABO", "α"=>Dict("value"=>2.0), "σ"=>Dict("value"=>3.0))
-        data_3 = Dict(
-            "type"=>"deridder_rensbergen",
-            "h"=>Dict("α"=>Dict("value"=>2.0, "unit"=>"1e-8*cm^3/s"),"β"=>1.2)
-        )
-        @test_throws AssertionError Muspel._read_vdW_single(Dict(), mass, χup, χlo, χ∞, Z)
-        @test_throws ErrorException Muspel._read_vdW_single(
-                                                   Dict("type"=>"s"), mass, χup, χlo, χ∞, Z)
         @test Muspel._read_vdW_single(data_1a, mass, χup, χlo, χ∞, Z) == (0.0, 0.3)
         @test all(Muspel._read_vdW_single(
             data_1b, mass, χup, χlo, χ∞, Z) .≈ (1.4630219520027063e-15, 0.3))
@@ -304,8 +294,15 @@ import PhysicalConstants.CODATA2018: h, c_0
             data_1c, mass, χup, χlo, χ∞, Z) .≈ (1.242488840030318e-16, 0.3))
         @test all(Muspel._read_vdW_single(
             data_1d, mass, χup, χlo, χ∞, Z) .≈ (6.473332228025985e-16, 0.3))
+        # type = abo
+        data_2 = Dict("type"=>"ABO", "α"=>Dict("value"=>2.0), "σ"=>Dict("value"=>3.0))
         @test all(Muspel._read_vdW_single(
             data_2, mass, χup, χlo, χ∞, Z) .≈ (1.043135275447453e-14, -0.5))
+        # type = deridder_rensbergen
+        data_3 = Dict(
+            "type"=>"deridder_rensbergen",
+            "h"=>Dict("α"=>Dict("value"=>2.0, "unit"=>"1e-8*cm^3/s"),"β"=>1.2)
+        )
         @test all(Muspel._read_vdW_single(
             data_3, mass, χup, χlo, χ∞, Z) .≈ (4.588496830823747e-14, 1.2))
     end

@@ -3,8 +3,6 @@ using Test
 
 @testset "lte.jl" begin
     H_empty = read_atom("test_atoms/H_test_empty.yaml")
-    populations = saha_boltzmann(H_empty, 1000.0, 1e15)
-    @test length(populations) == H_empty.nlevels
     @test_throws MethodError saha_boltzmann(H_empty, 1, 1e15)
     @test_throws MethodError saha_boltzmann(H_empty, 1e6, 1)
     # Limits:

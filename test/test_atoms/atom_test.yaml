@@ -1,6 +1,6 @@
 %YAML 1.1
 ---
-# This is an example atom for testing of as many field types as possible.
+# A TEST ONLY atom for testing of as many options as possible.
 
 element:
   symbol: H

@@ -112,11 +112,13 @@ using Unitful
         @test σ_atom_tables[2][2](91.175) == 0
     end
     @testset "σ_atoms_bf" begin
+        # Against previous implementation:
         @test σ_atoms_bf(σ_atom_tables, atoms, 251.0, 6000.0, 1.0e19) ≈ 5.2185826e-30
         @test σ_atoms_bf(σ_atom_tables, atoms, 10.0, 6000.0, 1.0e19) == 0
         @test σ_atoms_bf(σ_atom_tables, atoms, 370.0, 6000.0, 1.0e19) == 0
     end
     @testset "α_atoms_bf" begin
+        # Against previous implementation:
         @test α_atoms_bf(
             σ_atom_tables, atoms, 251.0, 6000.0, 1.0e19, 1.0e20) ≈ 5.2185826e-10
         @test α_atoms_bf(σ_atom_tables, atoms, 10.0, 6000.0, 1.0e19, 1.0e20) == 0
