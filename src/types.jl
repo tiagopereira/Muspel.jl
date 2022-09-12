@@ -53,6 +53,7 @@ struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     γ_vdW_const::SVector{N, FloatT}
     γ_vdW_exp::SVector{N, FloatT}
     γ_quad_stark_const::FloatT
+    γ_quad_stark_exp::FloatT
 end
 
 
