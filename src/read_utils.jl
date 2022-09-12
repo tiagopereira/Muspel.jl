@@ -74,7 +74,7 @@ function read_continuum(cont::Dict, χ, stage, level_ids; FloatT=Float64, IntT=I
         σ0 = _assign_unit(tmp["σ_peak"])
         λ = LinRange(λmin, λedge, nλ)
         Z_eff = stage[up] - 1
-        n_eff = Transparency.n_eff(χ[up], χ[lo], Z_eff)
+        n_eff = Transparency.n_eff(χ[up], χ[lo], Z_eff) |> NoUnits
         σ = σ_hydrogenic_bf_scaled.(σ0, λ, λedge, Z_eff, n_eff) .|> u"m^2"
     else
         error("Photoionisation cross section data missing")
@@ -90,7 +90,7 @@ Needs level energies χ, ionisation stages, labels, level ids and
 atomic mass from atom file.
 """
 function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
-                   FloatT=Float64, IntT=IntT)
+                   FloatT=Float64, IntT=Int)
     λ0, up, lo = _read_transition(line, χ, level_ids)
     Aul = _assign_unit(line["γ_rad"]) |> u"s^-1"
     Bul = calc_Bji(λ0, Aul) |> u"m^3 / J"
@@ -99,6 +99,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
     f_value = line["f_value"]
     if "data" in keys(waves)
         λ = _assign_unit(waves["data"]) .|> u"nm"
+        nλ = length(λ)
     elseif "type" in keys(waves)
         if waves["type"] == "RH"
             qcore = waves["qcore"]
@@ -111,6 +112,9 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
             q0 = waves["q0"]
             qmax = waves["qmax"]
             nλ = waves["nλ"]
+            if iseven(nλ)   # ensure odd number of wavelengths per line
+                nλ += 1
+            end
             vξ = _assign_unit(waves["qnorm"])
             λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=false)
         else
@@ -187,7 +191,6 @@ function calc_λline_MULTI(λ0::Unitful.Length{T}, nλ, q0::T, qmax::T, vξ::Uni
     q = Vector{T}(undef, nλ)
 
     ten = 10 * one(T)
-    al10 = log(ten)
     half = one(T) / 2
     a = ten ^ (q0 + half)
     xmax = log10(a * max(half, qmax - q0 - half))
@@ -275,7 +278,8 @@ function _read_vdW_single(data::Dict, mass, χup, χlo, χ∞, Z)
         vdw_const = const_barklem(mass, α, σ)
         vdw_exp = (1 - α)/2
     elseif type == "deridder_rensbergen"
-        α = data["α"]
+        data = data["h"]
+        α = data["α"]["value"] * ustrip(uparse(data["α"]["unit"])*1e8 |> u"cm^3/s")
         β = data["β"]
         h_mass = elements[:H].atomic_mass |> u"kg"
         # Assuming only perturbation by hydrogen

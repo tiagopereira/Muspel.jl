@@ -4,13 +4,14 @@
 
 element:
   symbol: H
+  atomic_mass: {value: 1.674e-24, unit: g}
 
 
 atomic_levels:
-  lev1: {energy: {value: 0.0, unit: cm^-1}, g: 2, stage: 1, label: H I 1S 2SE}
-  lev2: {energy: {value: 82258.214, unit: cm^-1}, g: 8, stage: 1, label: H I 2P 2PO}
-  lev3: {energy: {value: 97491.217, unit: cm^-1}, g: 18, stage: 1, label: H I 3D 2DE}
   lev1_ion1: {energy: {value: 109677.619, unit: cm^-1}, g: 1, stage: 2, label: H II}
+  lev1: {energy: {value: 0.0, unit: cm^-1}, g: 2, stage: 1, label: H I 1S 2SE}
+  lev3: {energy: {value: 97491.217, unit: cm^-1}, g: 18, stage: 1, label: H I 3D 2DE}
+  lev2: {energy: {value: 82258.214, unit: cm^-1}, g: 8, stage: 1, label: H I 2P 2PO}
 
 radiative_bound_bound:
   []
