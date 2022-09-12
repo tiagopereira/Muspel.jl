@@ -279,6 +279,7 @@ import PhysicalConstants.CODATA2018: h, c_0
     χ∞ = 2.18u"aJ"
     Z = 1
     @testset "_read_vdW_single" begin
+        # Values tested against previous implementation:
         @test_throws AssertionError Muspel._read_vdW_single(Dict(), mass, χup, χlo, χ∞, Z)
         @test_throws ErrorException Muspel._read_vdW_single(
                                                    Dict("type"=>"s"), mass, χup, χlo, χ∞, Z)
@@ -317,11 +318,13 @@ import PhysicalConstants.CODATA2018: h, c_0
     end
     @testset "_read_quadratic_stark" begin
         data = Dict()
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == 0.0
-        data["broadening_stark"] = Dict("coefficient" => 1.0)
+        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (0.0, 1.0)
+        data["broadening_stark"] = Dict()
         @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z
-            ) == ustrip(const_quadratic_stark(mass, χup, χlo, χ∞, Z) |> u"m^3 / s")
-        data["C_4"] = Dict("unit"=>"m^3/s", "value"=>2.0)
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == 2.0
+            ) == (ustrip(const_quadratic_stark(mass, χup, χlo, χ∞, Z) |> u"m^3 / s"), 1/6)
+        data["broadening_stark"]["C_4"] = Dict("unit"=>"m^3/s", "value"=>2.0)
+        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (2.0, 0.0)
+        data["broadening_stark"]["coefficient"] = 2.0
+        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (4.0, 0.0)
     end
 end
