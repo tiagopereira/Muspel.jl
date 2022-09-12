@@ -101,8 +101,8 @@ using Unitful
         @test σ_atom_tables[1][2](14.609) / abund[atoms[1].element] == 4.844e-23
         @test σ_atom_tables[2][2](364.70521515693) / abund[atoms[2].element] ≈ 1.379e-21
         # Using previous abundances:
-        @test σ_atom_tables[1][1](50.427) == 6.783e-22 * 0.08203515443298176
-        @test σ_atom_tables[1][2](14.609) == 4.844e-23 * 0.08203515443298176
+        @test σ_atom_tables[1][1](50.427) ≈ 6.783e-22 * 0.08203515443298176
+        @test σ_atom_tables[1][2](14.609) ≈ 4.844e-23 * 0.08203515443298176
         @test σ_atom_tables[2][2](364.70521515693) ≈ 1.379e-21 * 1.0
         # A few edges:
         @test σ_atom_tables[1][1](50.428) == 0
