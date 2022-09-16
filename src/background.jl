@@ -320,7 +320,7 @@ function σ_atoms_bf(
 ) where T <: AbstractFloat
     σ_λ = 0
     for (i, atom) in enumerate(atoms)
-        populations = saha_boltzmann(atom, temperature, electron_density)
+        populations = saha_boltzmann(atom, temperature, electron_density, one(T))
         for j in 1:length(atom.continua)
             σ_j = σ_atom_tables[i][j](λ)
             σ_λ += (σ_j * populations[atom.continua[j].lo])
