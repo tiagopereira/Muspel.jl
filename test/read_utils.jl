@@ -1,6 +1,6 @@
 using Muspel
 using Test
-using Transparency: const_quadratic_stark
+using Transparency: const_quadratic_stark, calc_Aji
 using Unitful
 using YAML
 import PhysicalConstants.CODATA2018: h, c_0
@@ -122,13 +122,14 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.χlo == 10.0
         @test line.gup == 8
         @test line.glo == 2
-        @test line.Aul == dline["γ_rad"]["value"]
-        @test line.Blu ≈ 1.5622986534095843e-7
-        @test line.Bul ≈ 3.9057466335239606e-8
+        @test line.Aul == ustrip(calc_Aji(line.λ0 * u"nm", line.glo / line.gup, line.f_value))
+        @test line.Blu ≈ 1.4616286808620544e-8
+        @test line.Bul ≈ 3.654071702155136e-9
         @test line.λ0 ≈ 397.2891714297857
         @test line.f_value == dline["f_value"]
         @test line.label_up == "b"
         @test line.label_lo == "a"
+        @test line.γ_rad == dline["γ_rad"]["value"]
         @test all(line.γ_vdW_const .== [2.3e-15])
         @test all(line.γ_vdW_exp .== [0.0])
         @test line.γ_quad_stark_const == 0

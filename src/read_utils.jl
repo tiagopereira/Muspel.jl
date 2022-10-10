@@ -92,11 +92,11 @@ atomic mass from atom file.
 function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
                    FloatT=Float64, IntT=Int)
     λ0, up, lo = _read_transition(line, χ, level_ids)
-    Aul = _assign_unit(line["γ_rad"]) |> u"s^-1"
+    f_value = line["f_value"]
+    Aul = calc_Aji(λ0, g[lo] / g[up], f_value)
     Bul = calc_Bji(λ0, Aul) |> u"m^3 / J"
     Blu = g[up] / g[lo] * Bul
     waves = line["wavelengths"]
-    f_value = line["f_value"]
     if "data" in keys(waves)
         λ = _assign_unit(waves["data"]) .|> u"nm"
         nλ = length(λ)
@@ -133,6 +133,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
     else
         error("Unsupported profile type $prof")
     end
+    γ_rad = _assign_unit(line["γ_rad"]) |> u"s^-1"
     # Energy of the first ionised stage above upper level
     χ∞ = minimum(χ[stage .== stage[up] + 1])
     (vdW_const, vdW_exp) = _read_vdW(line, mass, χ[up], χ[lo], χ∞, stage[up])
@@ -149,8 +150,8 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
     return AtomicLine{n_vdW, FloatT, IntT}(nλ, ustrip(χ[up]), ustrip(χ[lo]), g[up],
                                            g[lo], ustrip(Aul),ustrip(Blu), ustrip(Bul),
                                            ustrip(λ0), f_value, ustrip.(λ), prd, voigt,
-                                           label[up], label[lo], vdW_const, vdW_exp,
-                                           quad_stark_const, quad_stark_exp)
+                                           label[up], label[lo], ustrip(γ_rad), vdW_const,
+                                           vdW_exp, quad_stark_const, quad_stark_exp)
 end
 
 

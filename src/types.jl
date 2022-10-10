@@ -50,6 +50,7 @@ struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     Voigt::Bool
     label_up::String
     label_lo::String
+    γ_rad::FloatT
     γ_vdW_const::SVector{N, FloatT}
     γ_vdW_exp::SVector{N, FloatT}
     γ_quad_stark_const::FloatT
