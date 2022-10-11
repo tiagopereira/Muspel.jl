@@ -17,9 +17,10 @@ radiative_bound_bound:
 - transition: [lev7, lev1]
   f_value: 0.2761
   type_profile: Voigt
-  γ_rad: {value: 1800000000.0, unit: s^-1}
-  broadening_stark: {coefficient: 1.0}
-  broadening_vanderwaals: {type: Unsold, h_coefficient: 1.0, he_coefficient: 1.0}
+  broadening:
+      - {type: Natural, value: 1800000000.0, unit: s^-1}
+      - {type: Stark_quadratic, coefficient: 1.0}
+      - {type: VanderWaals_Unsold, h_coefficient: 1.0, he_coefficient: 1.0}
   wavelengths: {type: RH, nλ: 30, qwing: 200.0, qcore: 5.0, vmicro_char: {value: 2.5, unit: km / s}, asymmetric: false}
 
 

@@ -53,8 +53,8 @@ struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
     γ_rad::FloatT
     γ_hydrogen_const::SVector{N, FloatT}
     γ_hydrogen_exp::SVector{N, FloatT}
-    γ_electrons_const::SVector{M, FloatT}
-    γ_electrons_exp::SVector{M, FloatT}
+    γ_electron_const::SVector{M, FloatT}
+    γ_electron_exp::SVector{M, FloatT}
 end
 
 

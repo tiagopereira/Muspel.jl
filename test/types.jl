@@ -50,7 +50,7 @@ using Test
         @test fieldnames(AtomicLine) == (:nλ, :χup, :χlo, :gup, :glo, :Aul, :Blu, :Bul, :λ0,
                                          :f_value, :λ, :PRD, :Voigt, :label_up, :label_lo,
                                          :γ_rad, :γ_hydrogen_const, :γ_hydrogen_exp,
-                                         :γ_electrons_const, :γ_electrons_exp)
+                                         :γ_electron_const, :γ_electron_exp)
     end
     @testset "AtomicContinuum" begin
         @test fieldnames(AtomicContinuum) == (:up, :lo, :nλ, :λedge, :σ, :λ)
