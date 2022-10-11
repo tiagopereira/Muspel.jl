@@ -130,9 +130,9 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.label_up == "b"
         @test line.label_lo == "a"
         @test line.γ_rad == dline["γ_rad"]["value"]
-        @test all(line.γ_vdW_const .== [2.3e-15])
-        @test all(line.γ_vdW_exp .== [0.0])
-        @test line.γ_quad_stark_const == 0
+        @test all(line.γ_hydrogen_const .== [2.3e-15])
+        @test all(line.γ_hydrogen_exp .== [0.0])
+        @test all(line.γ_electrons_const .== [0.0])
         # when "data" in keys:
         @test line.nλ == 3
         @test line.λ == [100.0, 200.0, 300.0]
@@ -317,15 +317,15 @@ import PhysicalConstants.CODATA2018: h, c_0
                                                                                [0.3, 0.3])
         @test Muspel._read_vdW(Dict("something"=>1), mass, χup, χlo, χ∞, Z) == ([], [])
     end
-    @testset "_read_quadratic_stark" begin
+    @testset "_read_stark_quadratic" begin
         data = Dict()
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (0.0, 1.0)
+        @test Muspel._read_stark_quadratic(data, mass, χup, χlo, χ∞, Z) == (Float64[], Float64[])
         data["broadening_stark"] = Dict()
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z
-            ) == (ustrip(const_quadratic_stark(mass, χup, χlo, χ∞, Z) |> u"m^3 / s"), 1/6)
+        @test Muspel._read_stark_quadratic(data, mass, χup, χlo, χ∞, Z
+            ) == ([ustrip(const_quadratic_stark(mass, χup, χlo, χ∞, Z) |> u"m^3 / s")], [1/6])
         data["broadening_stark"]["C_4"] = Dict("unit"=>"m^3/s", "value"=>2.0)
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (2.0, 0.0)
+        @test Muspel._read_stark_quadratic(data, mass, χup, χlo, χ∞, Z) == ([2.0], [0.0])
         data["broadening_stark"]["coefficient"] = 2.0
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (4.0, 0.0)
+        @test Muspel._read_stark_quadratic(data, mass, χup, χlo, χ∞, Z) == ([4.0], [0.0])
     end
 end

@@ -34,7 +34,7 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
+struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
     nλ::IntT
     χup::FloatT
     χlo::FloatT
@@ -51,10 +51,10 @@ struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     label_up::String
     label_lo::String
     γ_rad::FloatT
-    γ_vdW_const::SVector{N, FloatT}
-    γ_vdW_exp::SVector{N, FloatT}
-    γ_quad_stark_const::FloatT
-    γ_quad_stark_exp::FloatT
+    γ_hydrogen_const::SVector{N, FloatT}
+    γ_hydrogen_exp::SVector{N, FloatT}
+    γ_electrons_const::SVector{M, FloatT}
+    γ_electrons_exp::SVector{M, FloatT}
 end
 
 

@@ -138,7 +138,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
     χ∞ = minimum(χ[stage .== stage[up] + 1])
     (vdW_const, vdW_exp) = _read_vdW(line, mass, χ[up], χ[lo], χ∞, stage[up])
     n_vdW = length(vdW_const)
-    (quad_stark_const, quad_stark_exp) = _read_quadratic_stark(
+    (stark_const, stark_exp) = _read_stark_quadratic(
         line,
         mass,
         χ[up],
@@ -146,12 +146,13 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
         χ∞,
         stage[up]
     )
+    n_stark = length(stark_const)
 
-    return AtomicLine{n_vdW, FloatT, IntT}(nλ, ustrip(χ[up]), ustrip(χ[lo]), g[up],
-                                           g[lo], ustrip(Aul),ustrip(Blu), ustrip(Bul),
-                                           ustrip(λ0), f_value, ustrip.(λ), prd, voigt,
-                                           label[up], label[lo], ustrip(γ_rad), vdW_const,
-                                           vdW_exp, quad_stark_const, quad_stark_exp)
+    return AtomicLine{n_vdW, n_stark, FloatT, IntT}(nλ, ustrip(χ[up]), ustrip(χ[lo]), g[up],
+                                              g[lo], ustrip(Aul),ustrip(Blu), ustrip(Bul),
+                                              ustrip(λ0), f_value, ustrip.(λ), prd, voigt,
+                                              label[up], label[lo], ustrip(γ_rad), vdW_const,
+                                              vdW_exp, stark_const, stark_exp)
 end
 
 
@@ -317,7 +318,7 @@ end
 """
 Parse quadratic Stark broadening and return the multiplicative constant.
 """
-function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
+function _read_stark_quadratic(data::Dict, mass, χup, χlo, χ∞, Z)
     if "broadening_stark" in keys(data)
         data_stark = data["broadening_stark"]
         if "coefficient" in keys(data_stark)
@@ -332,8 +333,9 @@ function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
             C_4 = const_quadratic_stark(mass, χup, χlo, χ∞, Z)
             tmp_exp = 1/6
         end
-        return (ustrip((coefficient * C_4) |> u"m^3 / s"), tmp_exp)
+        return (SVector{1, Float64}(ustrip((coefficient * C_4) |> u"m^3 / s")),
+                SVector{1, Float64}(tmp_exp))
     else
-        return (0.0, 1.0)
+        return (SVector{0, Float64}(), SVector{0, Float64}())
     end
 end

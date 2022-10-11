@@ -49,8 +49,8 @@ using Test
     @testset "AtomicLine" begin
         @test fieldnames(AtomicLine) == (:nλ, :χup, :χlo, :gup, :glo, :Aul, :Blu, :Bul, :λ0,
                                          :f_value, :λ, :PRD, :Voigt, :label_up, :label_lo,
-                                         :γ_rad, :γ_vdW_const, :γ_vdW_exp,
-                                         :γ_quad_stark_const, :γ_quad_stark_exp)
+                                         :γ_rad, :γ_hydrogen_const, :γ_hydrogen_exp,
+                                         :γ_electrons_const, :γ_electrons_exp)
     end
     @testset "AtomicContinuum" begin
         @test fieldnames(AtomicContinuum) == (:up, :lo, :nλ, :λedge, :σ, :λ)
