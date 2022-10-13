@@ -38,8 +38,7 @@ function read_atom(atom_file; FloatT=Float64, IntT=Int)
     nlines = length(data["radiative_bound_bound"])
     lines = Vector{AtomicLine}(undef, nlines)
     for (index, line) in enumerate(data["radiative_bound_bound"])
-        lines[index] = read_line(line, χ, g, stage, level_ids, label, mass;
-                                 FloatT=FloatT, IntT=IntT)
+        lines[index] = read_line(line, χ, g, stage, level_ids, label, mass)
     end
     # ...
     # Collisions
@@ -89,8 +88,7 @@ Reads spectral line data in a Dict read from a YAML-formatted atom file.
 Needs level energies χ, ionisation stages, labels, level ids and
 atomic mass from atom file.
 """
-function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
-                   FloatT=Float64, IntT=Int)
+function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
     λ0, up, lo = _read_transition(line, χ, level_ids)
     f_value = line["f_value"]
     Aul = calc_Aul(λ0, g[lo] / g[up], f_value)
@@ -135,16 +133,26 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
     end
     # Energy of the first ionised stage above upper level
     χ∞ = minimum(χ[stage .== stage[up] + 1])
-    γ_rad, γh_c, γh_e, γe_c, γe_e = _read_broadening(line, mass, χ[up], χ[lo], χ∞, stage[up])
-    N_h = length(γh_c)
-    N_e = length(γe_c)
-
-    return AtomicLine{N_h, N_e, FloatT, IntT}(nλ, ustrip(χ[up]), ustrip(χ[lo]), g[up],
-                                              g[lo], ustrip(Aul),ustrip(Blu), ustrip(Bul),
-                                              ustrip(λ0), f_value, ustrip.(λ), prd, voigt,
-                                              label[up], label[lo], γ_rad,
-                                              γh_c, γh_e, γe_c, γe_e)
+    broadening = _read_broadening(line, mass, χ[up], χ[lo], χ∞, stage[up])
+    return AtomicLine(
+        nλ,
+        ustrip(χ[up]),
+        ustrip(χ[lo]),
+        g[up],
+        g[lo],
+        ustrip(Aul),
+        ustrip(Blu),
+        ustrip(Bul),
+        ustrip(λ0),
+        f_value,
+        ustrip.(λ),
+        prd, voigt,
+        label[up],
+        label[lo],
+        broadening,
+    )
 end
+
 
 
 """
@@ -242,17 +250,16 @@ function _read_transition(data::Dict, χ, level_ids)
 end
 
 
-"""
-Reads broadening field in a YAML atom file.
-"""
-function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z)
-    γ_rad = 0.0
-    γ_hydrogen_const = []
-    γ_hydrogen_exp = []
-    γ_electron_const = []
-    γ_electron_exp = []
+function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z; T=Float64)
+    γ_rad = zero(T)
+    stark_linear_const = zero(T)
+    stark_linear_exp = zero(T)
+    hydrogen_const = zeros(T, 0)
+    hydrogen_exp = zeros(T, 0)
+    electron_const = zeros(T, 0)
+    electron_exp = zeros(T, 0)
 
-    electron_perturb = ["stark_linear", "stark_quadratic"]
+    electron_perturb = ["stark_quadratic"]
     hydrogen_perturb = ["vanderwaals_abo", "vanderwaals_unsold", "vanderwaals_deridder_rensbergen"]
 
     if "broadening" in lowercase.(keys(data))
@@ -262,29 +269,41 @@ function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z)
             type = lowercase(mechanism["type"])
             if type == "natural"
                 γ_rad = ustrip(_assign_unit(mechanism) |> u"s^-1")
+            elseif type == "stark_linear"
+                stark_linear_const = zero(T)  # To be replaced by function
+                stark_linear_exp = convert(T, 2/3)
             elseif type in electron_perturb
                 tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
-                append!(γ_electron_const, tmp_c)
-                append!(γ_electron_exp, tmp_e)
+                append!(electron_const, tmp_c)
+                append!(electron_exp, tmp_e)
             elseif type in hydrogen_perturb
                 tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
-                append!(γ_hydrogen_const, tmp_c)
-                append!(γ_hydrogen_exp, tmp_e)
+                append!(hydrogen_const, tmp_c)
+                append!(hydrogen_exp, tmp_e)
             else
                 @warn "Unsupported line broadening type $type, ignoring"
             end
         end
-        # Convert to static arrays
-        N_electron = length(γ_electron_const)
-        γ_electron_const = SVector{N_electron, Float64}(γ_electron_const)
-        γ_electron_exp = SVector{N_electron, Float64}(γ_electron_exp)
-        N_hydrogen = length(γ_hydrogen_const)
-        γ_hydrogen_const = SVector{N_hydrogen, Float64}(γ_hydrogen_const)
-        γ_hydrogen_exp = SVector{N_hydrogen, Float64}(γ_hydrogen_exp)
     end
-    return (γ_rad, γ_hydrogen_const, γ_hydrogen_exp, γ_electron_const, γ_electron_exp)
+    n_hydr = length(hydrogen_const)
+    n_elec = length(electron_const)
+    hydrogen_const = SVector{n_hydr, T}(hydrogen_const)
+    hydrogen_exp = SVector{n_hydr, T}(hydrogen_exp)
+    electron_const = SVector{n_elec, T}(electron_const)
+    electron_exp = SVector{n_elec, T}(electron_exp)
+    broadening = LineBroadening{n_hydr, n_elec, T}(
+        γ_rad,
+        hydrogen_const,
+        hydrogen_exp,
+        electron_const,
+        electron_exp,
+        stark_linear_const,
+        stark_linear_exp,
+    )
+    return broadening
 
 end
+
 
 
 """

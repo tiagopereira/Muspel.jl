@@ -1,6 +1,7 @@
 module Muspel
 
 export Atmosphere, AtomicLine, AtomicContinuum, AtomicModel
+export AbstractBroadening, LineBroadening
 export read_atom
 export saha_boltzmann, saha_boltzmann!
 export α_atoms_bf, σ_atoms_bf, σ_atoms_bf_tables

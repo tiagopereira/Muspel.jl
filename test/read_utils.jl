@@ -115,8 +115,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         mass = 1e-26u"kg"
         data = YAML.load_file("test_atoms/atom_test.yaml")
         dline = data["radiative_bound_bound"][4]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         # General:
         @test line.χup == 10.5
         @test line.χlo == 10.0
@@ -129,9 +128,9 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.f_value == dline["f_value"]
         @test line.label_up == "b"
         @test line.label_lo == "a"
-        @test all(line.γ_hydrogen_const .== [2.3e-15])
-        @test all(line.γ_hydrogen_exp .== [0.0])
-        @test all(line.γ_electron_const .== [0.0])
+        @test all(line.γ.hydrogen_const .== [2.3e-15])
+        @test all(line.γ.hydrogen_exp .== [0.0])
+        @test all(line.γ.electron_const .== [0.0])
         # when "data" in keys:
         @test line.nλ == 3
         @test line.λ == [100.0, 200.0, 300.0]
@@ -139,16 +138,14 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.Voigt == false
         # Else when type = RH:
         dline = data["radiative_bound_bound"][3]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 4
         @test all(line.λ .≈ [395.29880147724504, 397.286622522245,
                               397.2917203373264, 399.2795413823264])
         @test line.PRD == false
         @test line.Voigt == false
         dline = data["radiative_bound_bound"][2]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 4
         @test all(line.λ .≈ [397.2915988552346, 397.30589962705903,
                         397.46131378793945, 399.2794199002346])
@@ -156,8 +153,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.Voigt == true
         # Else when type = MULTI:
         dline = data["radiative_bound_bound"][1]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 5
         @test all(line.λ .≈ [397.28917142978565, 397.337592128717,
                         397.3860246364557, 397.43463712667443, 403.7840001532265])
@@ -167,11 +163,11 @@ import PhysicalConstants.CODATA2018: h, c_0
         dline_u = dline
         dline_u["type_profile"] = "Something"
         @test_throws ErrorException Muspel.read_line(
-                     dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+                     dline, χ, g, stage, level_ids, label, mass)
         dline_u["type_profile"] = "Voigt"
         dline_u["wavelengths"]["type"] = "Something"
         @test_throws ErrorException Muspel.read_line(
-                     dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+                     dline, χ, g, stage, level_ids, label, mass)
     end
     @testset "calc_λline_RH" begin
         # Wavelength values are against previous implementation
@@ -315,14 +311,15 @@ import PhysicalConstants.CODATA2018: h, c_0
         d1 = Dict("type" => "VanderWaals_Unsold")
         d2 = Dict("type" => "Stark_quadratic", "c_4" => Dict("unit" => "m^3/s", "value" => 2.0))
         @test Muspel._read_broadening(
-                Dict("broadening"=>[d1]), mass, χup, χlo, χ∞, Z) == (0.0, [0.0], [0.3], [], [])
+                Dict("broadening"=>[d1]), mass, χup, χlo, χ∞, Z) ==
+                          LineBroadening{1, 0, Float64}(0.0, [0.0], [0.3], [], [], 0.0, 0.0)
         @test Muspel._read_broadening(
             Dict("broadening"=>[d1, d1]), mass, χup, χlo, χ∞, Z) ==
-                                                       (0.0, [0.0, 0.0], [0.3, 0.3], [], [])
+                LineBroadening{2, 0, Float64}(0.0, [0.0, 0.0], [0.3, 0.3], [], [], 0.0, 0.0)
         @test Muspel._read_broadening(
             Dict("broadening"=>[d1, d2]), mass, χup, χlo, χ∞, Z) ==
-                                                       (0.0, [0.0], [0.3], [2.0], [0.0])
+                    LineBroadening{1, 1, Float64}(0.0, [0.0], [0.3], [2.0], [0.0], 0.0, 0.0)
         @test Muspel._read_broadening(Dict("something"=>1), mass, χup, χlo, χ∞, Z) ==
-                                                       (0.0, [], [], [], [])
+                                LineBroadening{0, 0, Float64}(0.0, [], [], [], [], 0.0, 0.0)
     end
 end
