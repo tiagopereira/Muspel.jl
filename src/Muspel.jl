@@ -4,9 +4,10 @@ export Atmosphere, AtomicLine, AtomicContinuum, AtomicModel
 export AbstractBroadening, LineBroadening
 export read_atom
 export saha_boltzmann, saha_boltzmann!
-export α_atoms_bf, σ_atoms_bf, σ_atoms_bf_tables
-export α_cont, α_cont_no_atoms
-export α_cont_fromtables, Tables_σ
+export AbstractExtinctionItp, ExtinctionItpLTE, ExtinctionItpNLTE
+export α_cont, α_cont_no_itp
+export get_atoms_bf_interpolant, create_σ_itp_LTE, create_σ_itp_NLTE
+export piecewise_1D_nn, piecewise_1D_linear
 
 using AtomicData
 using Interpolations
