@@ -240,7 +240,7 @@ function get_atoms_bf_interpolant(atoms::AbstractVector{AtomicModel})
     ]
     for (i, atom) in enumerate(atoms)
         for j in 1:length(atom.continua)
-            tables[i][j] = LinearInterpolation(
+            tables[i][j] = linear_interpolation(
                 atom.continua[j].λ,
                 atom.continua[j].σ * ABUNDANCES[atom.element],
                 extrapolation_bc=0
@@ -369,8 +369,8 @@ function create_σ_itp_LTE(
         tmp = (σ_h2plus_ff(λ_u, temp * u"K") + σ_h2plus_bf(λ_u, temp * u"K")) |> u"m^5"
         table_H2[iT, ie] = ustrip(tmp) * (1 - ion_frac) * ion_frac
     end
-    H_itp = CubicSplineInterpolation((log_temp, log_ne), table_H, extrapolation_bc=Line())
-    H2_itp = CubicSplineInterpolation((log_temp, log_ne), table_H2, extrapolation_bc=Line())
+    H_itp = cubic_spline_interpolation((log_temp, log_ne), table_H, extrapolation_bc=Line())
+    H2_itp = cubic_spline_interpolation((log_temp, log_ne), table_H2, extrapolation_bc=Line())
     return ExtinctionItpLTE(H_itp, H2_itp, λ)
 end
 
@@ -412,7 +412,7 @@ function create_σ_itp_NLTE(
         ne = 10 ^ log_ne[ie]
         table_atoms[iT, ie] = σH_atoms_bf(atom_interpolants, background_atoms, λ, temp, ne)
     end
-    atoms_itp = CubicSplineInterpolation((log_temp, log_ne), table_atoms, extrapolation_bc=Line())
+    atoms_itp = cubic_spline_interpolation((log_temp, log_ne), table_atoms, extrapolation_bc=Line())
     for iT in 1:nT
         temp =  (10 ^ log_temp[iT])u"K"
         σ_hminus = (σ_hminus_bf(λ_u, temp; recipe="wbr") + σ_hminus_ff(λ_u, temp)) |> u"m^5"
@@ -420,8 +420,8 @@ function create_σ_itp_NLTE(
         table[iT, 2] = ustrip((σ_h2plus_ff(λ_u, temp) + σ_h2plus_bf(λ_u, temp)) |> u"m^5")
         table[iT, 3] = ustrip(σ_hydrogenic_ff(ν_u, temp, 1) |> u"m^5")
     end
-    hminus_itp = CubicSplineInterpolation((log_temp,), table[:, 1], extrapolation_bc=Line())
-    h2plus_itp = CubicSplineInterpolation((log_temp,), table[:, 2], extrapolation_bc=Line())
-    h_ff_itp = CubicSplineInterpolation((log_temp,), table[:, 3], extrapolation_bc=Line())
+    hminus_itp = cubic_spline_interpolation((log_temp,), table[:, 1], extrapolation_bc=Line())
+    h2plus_itp = cubic_spline_interpolation((log_temp,), table[:, 2], extrapolation_bc=Line())
+    h_ff_itp = cubic_spline_interpolation((log_temp,), table[:, 3], extrapolation_bc=Line())
     return ExtinctionItpNLTE(atoms_itp, hminus_itp, h2plus_itp, h_ff_itp, λ)
 end
