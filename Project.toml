@@ -1,6 +1,6 @@
 name = "Muspel"
 uuid = "6074595b-091a-495a-9b39-045a690b2c53"
-authors = ["Tiago M. D. Pereira"]
+authors = ["Tiago M. D. Pereira", "Edvarda Harnes"]
 version = "0.1.0"
 
 [deps]
@@ -16,15 +16,15 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
 AtomicData = "^0.1.2"
-Interpolations = "0.13, 0.14"
+Interpolations = "^0.14"
 PeriodicTable = "^1"
 PhysicalConstants = "^0.2.1"
 ProgressMeter = "^1.7.2"
 StaticArrays = "^1.5.1"
-Transparency = "^0.1.8"
+Transparency = "^0.2.0"
 Unitful = "^1"
 YAML = "^0.4.7"
-julia = "^1.7"
+julia = "^1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

@@ -1,6 +1,3 @@
-using Muspel
-using Test
-
 @testset "types.jl" begin
     @testset "Atmosphere" begin
         x64 = ones(Float64, 2)
@@ -49,8 +46,7 @@ using Test
     @testset "AtomicLine" begin
         @test fieldnames(AtomicLine) == (:nλ, :χup, :χlo, :gup, :glo, :Aul, :Blu, :Bul, :λ0,
                                          :f_value, :λ, :PRD, :Voigt, :label_up, :label_lo,
-                                         :γ_rad, :γ_vdW_const, :γ_vdW_exp,
-                                         :γ_quad_stark_const, :γ_quad_stark_exp)
+                                         :γ)
     end
     @testset "AtomicContinuum" begin
         @test fieldnames(AtomicContinuum) == (:up, :lo, :nλ, :λedge, :σ, :λ)

@@ -34,7 +34,21 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
+abstract type AbstractBroadening{T <: AbstractFloat} end
+
+
+struct LineBroadening{N, M, T} <: AbstractBroadening{T}
+    natural::T
+    hydrogen_const::SVector{N, T}
+    hydrogen_exp::SVector{N, T}
+    electron_const::SVector{M, T}
+    electron_exp::SVector{M, T}
+    stark_linear_const::T
+    stark_linear_exp::T
+end
+
+
+struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
     nλ::IntT
     χup::FloatT
     χlo::FloatT
@@ -50,12 +64,9 @@ struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     Voigt::Bool
     label_up::String
     label_lo::String
-    γ_rad::FloatT
-    γ_vdW_const::SVector{N, FloatT}
-    γ_vdW_exp::SVector{N, FloatT}
-    γ_quad_stark_const::FloatT
-    γ_quad_stark_exp::FloatT
+    γ::LineBroadening{N, M, FloatT}
 end
+
 
 
 struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}

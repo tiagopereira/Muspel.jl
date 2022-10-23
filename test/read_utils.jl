@@ -1,6 +1,4 @@
-using Muspel
-using Test
-using Transparency: const_quadratic_stark, calc_Aji
+using Transparency: const_stark_quadratic, calc_Aul
 using Unitful
 using YAML
 import PhysicalConstants.CODATA2018: h, c_0
@@ -115,24 +113,22 @@ import PhysicalConstants.CODATA2018: h, c_0
         mass = 1e-26u"kg"
         data = YAML.load_file("test_atoms/atom_test.yaml")
         dline = data["radiative_bound_bound"][4]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         # General:
         @test line.χup == 10.5
         @test line.χlo == 10.0
         @test line.gup == 8
         @test line.glo == 2
-        @test line.Aul == ustrip(calc_Aji(line.λ0 * u"nm", line.glo / line.gup, line.f_value))
+        @test line.Aul == ustrip(calc_Aul(line.λ0 * u"nm", line.glo / line.gup, line.f_value))
         @test line.Blu ≈ 1.4616286808620544e-8
         @test line.Bul ≈ 3.654071702155136e-9
         @test line.λ0 ≈ 397.2891714297857
         @test line.f_value == dline["f_value"]
         @test line.label_up == "b"
         @test line.label_lo == "a"
-        @test line.γ_rad == dline["γ_rad"]["value"]
-        @test all(line.γ_vdW_const .== [2.3e-15])
-        @test all(line.γ_vdW_exp .== [0.0])
-        @test line.γ_quad_stark_const == 0
+        @test all(line.γ.hydrogen_const .== [2.3e-15])
+        @test all(line.γ.hydrogen_exp .== [0.0])
+        @test all(line.γ.electron_const .== [0.0])
         # when "data" in keys:
         @test line.nλ == 3
         @test line.λ == [100.0, 200.0, 300.0]
@@ -140,16 +136,14 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.Voigt == false
         # Else when type = RH:
         dline = data["radiative_bound_bound"][3]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 4
         @test all(line.λ .≈ [395.29880147724504, 397.286622522245,
                               397.2917203373264, 399.2795413823264])
         @test line.PRD == false
         @test line.Voigt == false
         dline = data["radiative_bound_bound"][2]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 4
         @test all(line.λ .≈ [397.2915988552346, 397.30589962705903,
                         397.46131378793945, 399.2794199002346])
@@ -157,8 +151,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.Voigt == true
         # Else when type = MULTI:
         dline = data["radiative_bound_bound"][1]
-        line = Muspel.read_line(
-                    dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+        line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 5
         @test all(line.λ .≈ [397.28917142978565, 397.337592128717,
                         397.3860246364557, 397.43463712667443, 403.7840001532265])
@@ -168,11 +161,11 @@ import PhysicalConstants.CODATA2018: h, c_0
         dline_u = dline
         dline_u["type_profile"] = "Something"
         @test_throws ErrorException Muspel.read_line(
-                     dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+                     dline, χ, g, stage, level_ids, label, mass)
         dline_u["type_profile"] = "Voigt"
         dline_u["wavelengths"]["type"] = "Something"
         @test_throws ErrorException Muspel.read_line(
-                     dline, χ, g, stage, level_ids, label, mass, FloatT=Float64, IntT=Int64)
+                     dline, χ, g, stage, level_ids, label, mass)
     end
     @testset "calc_λline_RH" begin
         # Wavelength values are against previous implementation
@@ -279,53 +272,52 @@ import PhysicalConstants.CODATA2018: h, c_0
     χlo = 0.0u"aJ"
     χ∞ = 2.18u"aJ"
     Z = 1
-    @testset "_read_vdW_single" begin
-        # Values tested against previous implementation:
-        @test_throws AssertionError Muspel._read_vdW_single(Dict(), mass, χup, χlo, χ∞, Z)
-        @test_throws ErrorException Muspel._read_vdW_single(
-                                                   Dict("type"=>"s"), mass, χup, χlo, χ∞, Z)
-        # type = unsold
-        data_1a = Dict("type"=>"Unsold")
-        data_1b = Dict("type"=>"unsold", "h_coefficient"=>1.)
-        data_1c = Dict("type"=>"unsold", "he_coefficient"=>1.)
-        data_1d = Dict("type"=>"unsold", "h_coefficient"=>0.4, "he_coefficient"=>0.5)
-        @test Muspel._read_vdW_single(data_1a, mass, χup, χlo, χ∞, Z) == (0.0, 0.3)
-        @test all(Muspel._read_vdW_single(
+    @testset "_read_broadening_single" begin
+        data_1a = Dict("type"=>"VanderWaals_Unsold")
+        data_1b = Dict("type"=>"VanderWaals_Unsold", "h_coefficient"=>1.)
+        data_1c = Dict("type"=>"VanderWaals_Unsold", "he_coefficient"=>1.)
+        data_1d = Dict("type"=>"VanderWaals_Unsold", "h_coefficient"=>0.4, "he_coefficient"=>0.5)
+        @test Muspel._read_broadening_single(data_1a, mass, χup, χlo, χ∞, Z) == (0.0, 0.3)
+        @test all(Muspel._read_broadening_single(
             data_1b, mass, χup, χlo, χ∞, Z) .≈ (1.4630219520027063e-15, 0.3))
-        @test all(Muspel._read_vdW_single(
+        @test all(Muspel._read_broadening_single(
             data_1c, mass, χup, χlo, χ∞, Z) .≈ (1.242488840030318e-16, 0.3))
-        @test all(Muspel._read_vdW_single(
+        @test all(Muspel._read_broadening_single(
             data_1d, mass, χup, χlo, χ∞, Z) .≈ (6.473332228025985e-16, 0.3))
-        # type = abo
-        data_2 = Dict("type"=>"ABO", "α"=>Dict("value"=>2.0), "σ"=>Dict("value"=>3.0))
-        @test all(Muspel._read_vdW_single(
-            data_2, mass, χup, χlo, χ∞, Z) .≈ (1.043135275447453e-14, -0.5))
-        # type = deridder_rensbergen
-        data_3 = Dict(
-            "type"=>"deridder_rensbergen",
-            "h"=>Dict("α"=>Dict("value"=>2.0, "unit"=>"1e-8*cm^3/s"),"β"=>1.2)
+        data_2 = Dict(
+            "type" => "VanderWaals_ABO",
+            "α" => Dict("value" => 2.0),
+            "σ" => Dict("value" => 3.0),
         )
-        @test all(Muspel._read_vdW_single(
+        @test all(Muspel._read_broadening_single(
+            data_2, mass, χup, χlo, χ∞, Z) .≈ (1.043135275447453e-14, -0.5))
+        data_3 = Dict(
+            "type" => "VanderWaals_deridder_rensbergen",
+            "h" => Dict("α" => Dict("value" => 2.0, "unit" => "1e-8*cm^3/s"),"β" => 1.2)
+        )
+        @test all(Muspel._read_broadening_single(
             data_3, mass, χup, χlo, χ∞, Z) .≈ (4.588496830823747e-14, 1.2))
+        data_4 = Dict{Any, Any}("type" => "Stark_quadratic")
+        @test Muspel._read_broadening_single(data_4, mass, χup, χlo, χ∞, Z
+            ) == (ustrip(const_stark_quadratic(mass, χup, χlo, χ∞, Z) |> u"m^3 / s"), 1/6)
+        data_4["c_4"] = Dict("unit" => "m^3/s", "value" => 2.0)
+        @test Muspel._read_broadening_single(data_4, mass, χup, χlo, χ∞, Z) == (2.0, 0.0)
+        data_4["coefficient"] = 2.0
+        @test Muspel._read_broadening_single(data_4, mass, χup, χlo, χ∞, Z) == (4.0, 0.0)
     end
-    @testset "_read_vdW" begin
-        d = Dict("type"=>"Unsold")
-        @test Muspel._read_vdW(
-                Dict("broadening_vanderwaals"=>d), mass, χup, χlo, χ∞, Z) == ([0.0], [0.3])
-        @test Muspel._read_vdW(
-            Dict("broadening_vanderwaals"=>[d,d]), mass, χup, χlo, χ∞, Z) == ([0.0, 0.0],
-                                                                               [0.3, 0.3])
-        @test Muspel._read_vdW(Dict("something"=>1), mass, χup, χlo, χ∞, Z) == ([], [])
-    end
-    @testset "_read_quadratic_stark" begin
-        data = Dict()
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (0.0, 1.0)
-        data["broadening_stark"] = Dict()
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z
-            ) == (ustrip(const_quadratic_stark(mass, χup, χlo, χ∞, Z) |> u"m^3 / s"), 1/6)
-        data["broadening_stark"]["C_4"] = Dict("unit"=>"m^3/s", "value"=>2.0)
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (2.0, 0.0)
-        data["broadening_stark"]["coefficient"] = 2.0
-        @test Muspel._read_quadratic_stark(data, mass, χup, χlo, χ∞, Z) == (4.0, 0.0)
+    @testset "_read_broadening" begin
+        d1 = Dict("type" => "VanderWaals_Unsold")
+        d2 = Dict("type" => "Stark_quadratic", "c_4" => Dict("unit" => "m^3/s", "value" => 2.0))
+        @test Muspel._read_broadening(
+                Dict("broadening"=>[d1]), mass, χup, χlo, χ∞, Z) ==
+                          LineBroadening{1, 0, Float64}(0.0, [0.0], [0.3], [], [], 0.0, 0.0)
+        @test Muspel._read_broadening(
+            Dict("broadening"=>[d1, d1]), mass, χup, χlo, χ∞, Z) ==
+                LineBroadening{2, 0, Float64}(0.0, [0.0, 0.0], [0.3, 0.3], [], [], 0.0, 0.0)
+        @test Muspel._read_broadening(
+            Dict("broadening"=>[d1, d2]), mass, χup, χlo, χ∞, Z) ==
+                    LineBroadening{1, 1, Float64}(0.0, [0.0], [0.3], [2.0], [0.0], 0.0, 0.0)
+        @test Muspel._read_broadening(Dict("something"=>1), mass, χup, χlo, χ∞, Z) ==
+                                LineBroadening{0, 0, Float64}(0.0, [], [], [], [], 0.0, 0.0)
     end
 end

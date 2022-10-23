@@ -14,37 +14,43 @@ radiative_bound_bound:
   - transition: [lev2, lev1]
     f_value: 0.4162
     type_profile: Voigt
-    γ_rad: {value: 470000000.0, unit: s^-1}
-    broadening_stark: {coefficient: 0.0}
-    broadening_vanderwaals: {type: Unsold, h_coefficient: 1.0, he_coefficient: 1.0}
+    broadening:
+       - {type: Natural, value: 470000000.0, unit: s^-1}
+       - {type: Stark_quadratic, coefficient: 1.0}
+       - {type: VanderWaals_Unsold, h_coefficient: 1.0, he_coefficient: 1.0}
     wavelengths: {type: MULTI, nλ: 5, qmax: 600.0, q0: 15.0, qnorm: {value: 8.0, unit: km / s}}
   - transition: [lev2, lev1]
     f_value: 0.4162
     type_profile: PRD
-    γ_rad: {value: 470000000.0, unit: s^-1}
-    broadening_stark: {coefficient: 0.0}
-    broadening_vanderwaals: [{type: ABO, σ: {value: 1.0, unit: a_0^2}, α: {value: 0.0, unit: m/m}}, {type: Unsold, he_coefficient: 1.0}]
+    broadening:
+       - {type: Natural, value: 470000000.0, unit: s^-1}
+       - {type: Stark_quadratic, coefficient: 0.0}
+       - {type: VanderWaals_ABO, σ: {value: 1.0, unit: a_0^2}, α: {value: 0.0, unit: m/m}}
+       - {type: VanderWaals_Unsold, he_coefficient: 1.0}
     wavelengths: {type: RH, nλ: 4, qwing: 600.0, qcore: 15.0, vmicro_char: {value: 2.5, unit: km / s}, asymmetric: false}
   - transition: [lev2, lev1]
     f_value: 0.4162
     type_profile: Gaussian
-    γ_rad: {value: 470000000.0, unit: s^-1}
-    broadening_stark: {coefficient: 0.0}
-    broadening_vanderwaals: {type: Deridder_Rensbergen, h: {α: {value: 1.11, unit: 1e-8*cm^3/s}, β: 0.0}, he: {α: {value: 1.0, unit: 1e-9*cm^3/s}, β: 0.0}}
+    broadening:
+       - {type: Natural, value: 470000000.0, unit: s^-1}
+       - {type: Stark_quadratic, coefficient: 0.0}
+       - {type: VanderWaals_Deridder_Rensbergen, h: {α: {value: 1.11, unit: 1e-8*cm^3/s}, β: 0.0}, he: {α: {value: 1.0, unit: 1e-9*cm^3/s}, β: 0.0}}
     wavelengths: {type: RH, nλ: 4, qwing: 600.0, qcore: 15.0, vmicro_char: {value: 2.5, unit: km / s}, asymmetric: true}
   - transition: [lev2, lev1]
     f_value: 0.4162
     type_profile: Gauss
-    γ_rad: {value: 470000000.0, unit: s^-1}
-    broadening_stark: {coefficient: 0.0}
-    broadening_vanderwaals: {type: Deridder_Rensbergen, h: {α: {value: 2.3, unit: 1e-9*cm^3/s}, β: 0.0}, he: {α: {value: 1.0, unit: 1e-9*cm^3/s}, β: 0.0}}
+    broadening:
+       - {type: Natural, value: 470000000.0, unit: s^-1}
+       - {type: Stark_quadratic, coefficient: 0.0}
+       - {type: VanderWaals_Deridder_Rensbergen, h: {α: {value: 2.3, unit: 1e-9*cm^3/s}, β: 0.0}, he: {α: {value: 1.0, unit: 1e-9*cm^3/s}, β: 0.0}}
     wavelengths: {data: {unit: "Å", value: [1000.0, 2000.0, 3000.0]}}
   - transition: [lev2, lev1]
     f_value: 0.4162
     type_profile: Doppler
-    γ_rad: {value: 470000000.0, unit: s^-1}
-    broadening_stark: {coefficient: 0.0}
-    broadening_vanderwaals: {type: Deridder_Rensbergen, h: {α: {value: 1.4, unit: 1e-8*cm^3/s}, β: 0.0}, he: {α: {value: 1.0, unit: 1e-9*cm^3/s}, β: 0.0}}
+    broadening:
+       - {type: Natural, value: 470000000.0, unit: s^-1}
+       - {type: Stark_quadratic, coefficient: 0.0}
+       - {type: VanderWaals_Deridder_Rensbergen, h: {α: {value: 1.4, unit: 1e-8*cm^3/s}, β: 0.0}, he: {α: {value: 1.0, unit: 1e-9*cm^3/s}, β: 0.0}}
     wavelengths: {type: RH, nλ: 4, qwing: 600.0, qcore: 15.0, vmicro_char: {value: 2.5, unit: km / s}, asymmetric: true}
 
 radiative_bound_free:

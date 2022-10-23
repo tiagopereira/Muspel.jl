@@ -38,8 +38,7 @@ function read_atom(atom_file; FloatT=Float64, IntT=Int)
     nlines = length(data["radiative_bound_bound"])
     lines = Vector{AtomicLine}(undef, nlines)
     for (index, line) in enumerate(data["radiative_bound_bound"])
-        lines[index] = read_line(line, χ, g, stage, level_ids, label, mass;
-                                 FloatT=FloatT, IntT=IntT)
+        lines[index] = read_line(line, χ, g, stage, level_ids, label, mass)
     end
     # ...
     # Collisions
@@ -89,12 +88,11 @@ Reads spectral line data in a Dict read from a YAML-formatted atom file.
 Needs level energies χ, ionisation stages, labels, level ids and
 atomic mass from atom file.
 """
-function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
-                   FloatT=Float64, IntT=Int)
+function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
     λ0, up, lo = _read_transition(line, χ, level_ids)
     f_value = line["f_value"]
-    Aul = calc_Aji(λ0, g[lo] / g[up], f_value)
-    Bul = calc_Bji(λ0, Aul) |> u"m^3 / J"
+    Aul = calc_Aul(λ0, g[lo] / g[up], f_value)
+    Bul = calc_Bul(λ0, Aul) |> u"m^3 / J"
     Blu = g[up] / g[lo] * Bul
     waves = line["wavelengths"]
     if "data" in keys(waves)
@@ -133,26 +131,28 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass;
     else
         error("Unsupported profile type $prof")
     end
-    γ_rad = _assign_unit(line["γ_rad"]) |> u"s^-1"
     # Energy of the first ionised stage above upper level
     χ∞ = minimum(χ[stage .== stage[up] + 1])
-    (vdW_const, vdW_exp) = _read_vdW(line, mass, χ[up], χ[lo], χ∞, stage[up])
-    n_vdW = length(vdW_const)
-    (quad_stark_const, quad_stark_exp) = _read_quadratic_stark(
-        line,
-        mass,
-        χ[up],
-        χ[lo],
-        χ∞,
-        stage[up]
+    broadening = _read_broadening(line, mass, χ[up], χ[lo], χ∞, stage[up])
+    return AtomicLine(
+        nλ,
+        ustrip(χ[up]),
+        ustrip(χ[lo]),
+        g[up],
+        g[lo],
+        ustrip(Aul),
+        ustrip(Blu),
+        ustrip(Bul),
+        ustrip(λ0),
+        f_value,
+        ustrip.(λ),
+        prd, voigt,
+        label[up],
+        label[lo],
+        broadening,
     )
-
-    return AtomicLine{n_vdW, FloatT, IntT}(nλ, ustrip(χ[up]), ustrip(χ[lo]), g[up],
-                                           g[lo], ustrip(Aul),ustrip(Blu), ustrip(Bul),
-                                           ustrip(λ0), f_value, ustrip.(λ), prd, voigt,
-                                           label[up], label[lo], ustrip(γ_rad), vdW_const,
-                                           vdW_exp, quad_stark_const, quad_stark_exp)
 end
+
 
 
 """
@@ -250,15 +250,70 @@ function _read_transition(data::Dict, χ, level_ids)
 end
 
 
+function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z; T=Float64)
+    γ_rad = zero(T)
+    stark_linear_const = zero(T)
+    stark_linear_exp = zero(T)
+    hydrogen_const = zeros(T, 0)
+    hydrogen_exp = zeros(T, 0)
+    electron_const = zeros(T, 0)
+    electron_exp = zeros(T, 0)
+
+    electron_perturb = ["stark_quadratic"]
+    hydrogen_perturb = ["vanderwaals_abo", "vanderwaals_unsold", "vanderwaals_deridder_rensbergen"]
+
+    if "broadening" in lowercase.(keys(data))
+        for mechanism in data["broadening"]
+            keys_mech = lowercase.(keys(mechanism))
+            @assert "type" in keys_mech "Missing broadening type"
+            type = lowercase(mechanism["type"])
+            if type == "natural"
+                γ_rad = ustrip(_assign_unit(mechanism) |> u"s^-1")
+            elseif type == "stark_linear"
+                stark_linear_const = zero(T)  # To be replaced by function
+                stark_linear_exp = convert(T, 2/3)
+            elseif type in electron_perturb
+                tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
+                append!(electron_const, tmp_c)
+                append!(electron_exp, tmp_e)
+            elseif type in hydrogen_perturb
+                tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
+                append!(hydrogen_const, tmp_c)
+                append!(hydrogen_exp, tmp_e)
+            else
+                @warn "Unsupported line broadening type $type, ignoring"
+            end
+        end
+    end
+    n_hydr = length(hydrogen_const)
+    n_elec = length(electron_const)
+    hydrogen_const = SVector{n_hydr, T}(hydrogen_const)
+    hydrogen_exp = SVector{n_hydr, T}(hydrogen_exp)
+    electron_const = SVector{n_elec, T}(electron_const)
+    electron_exp = SVector{n_elec, T}(electron_exp)
+    broadening = LineBroadening{n_hydr, n_elec, T}(
+        γ_rad,
+        hydrogen_const,
+        hydrogen_exp,
+        electron_const,
+        electron_exp,
+        stark_linear_const,
+        stark_linear_exp,
+    )
+    return broadening
+
+end
+
+
+
 """
-Parse type of van der Waals broadening and return the constant
-and temperature exponent.
+Reads individual broadening mechanisms and converts each to a multiplier
+constant and temperature exponent based on different recipes.
 """
-function _read_vdW_single(data::Dict, mass, χup, χlo, χ∞, Z)
+function _read_broadening_single(data::Dict, mass, χup, χlo, χ∞, Z)
     keys_input = lowercase.(keys(data))
-    @assert "type" in keys_input "Missing type of van den Waals broadening"
     type = lowercase(data["type"])
-    if type == "unsold"
+    if type == "vanderwaals_unsold"
         if "h_coefficient" in keys_input
             h_scaling = data["h_coefficient"]
         else
@@ -269,71 +324,42 @@ function _read_vdW_single(data::Dict, mass, χup, χlo, χ∞, Z)
         else
             he_scaling = 0.0
         end
-        vdw_const = const_unsold(mass, χup, χlo, χ∞, Z;
+        tmp_const = const_unsold(mass, χup, χlo, χ∞, Z;
                                  H_scaling=h_scaling, He_scaling=he_scaling) * u"m^3 / s"
-        vdw_exp = 0.3
-    elseif type == "abo"  # Barklem
-        # Trusting the units
-        α = data["α"]["value"]
+        tmp_exp = 0.3
+    elseif type == "vanderwaals_abo"  # Anstee, Barklem, & O'Mara formalism
+        α = data["α"]["value"]  # Trusting the units are in a_0^2
         σ = data["σ"]["value"]
-        vdw_const = const_barklem(mass, α, σ)
-        vdw_exp = (1 - α)/2
-    elseif type == "deridder_rensbergen"
+        tmp_const = const_barklem(mass, α, σ)
+        tmp_exp = (1 - α)/2
+    elseif type == "vanderwaals_deridder_rensbergen"
         data = data["h"]
-        α = data["α"]["value"] * ustrip(uparse(data["α"]["unit"])*1e8 |> u"cm^3/s")
+        α = data["α"]["value"] * ustrip(uparse(data["α"]["unit"]) * 1e8 |> u"cm^3/s")
         β = data["β"]
         h_mass = elements[:H].atomic_mass |> u"kg"
         # Assuming only perturbation by hydrogen
-        vdw_const = const_deridder_rensbergen(mass, h_mass, α, β)
-        vdw_exp = β
-    else
-        error("Unsupported van der Waals broadening type: $type")
-    end
-    return (ustrip(vdw_const |> u"m^3 / s"), vdw_exp)
-end
-
-
-function _read_vdW(line, mass, χup, χlo, χ∞, Z)
-    if "broadening_vanderwaals" in keys(line)
-        data = line["broadening_vanderwaals"]
-        if typeof(data) <: Dict
-            data = [data]
-        end
-        nprocs = length(data)
-        arr_const = []
-        arr_exp = []
-        for process in data
-            tmp_const, tmp_exp = _read_vdW_single(process, mass, χup, χlo, χ∞, Z)
-            append!(arr_const, tmp_const)
-            append!(arr_exp, tmp_exp)
-        end
-        return (SVector{nprocs, Float64}(arr_const), SVector{nprocs, Float64}(arr_exp))
-    else
-        return (SVector{0, Float64}(), SVector{0, Float64}())
-    end
-end
-
-
-"""
-Parse quadratic Stark broadening and return the multiplicative constant.
-"""
-function _read_quadratic_stark(data::Dict, mass, χup, χlo, χ∞, Z)
-    if "broadening_stark" in keys(data)
-        data_stark = data["broadening_stark"]
-        if "coefficient" in keys(data_stark)
-            coefficient = data_stark["coefficient"]
+        tmp_const = const_deridder_rensbergen(mass, h_mass, α, β)
+        tmp_exp = β
+    elseif type == "stark_quadratic"
+        if "coefficient" in keys_input
+            coefficient = data["coefficient"]
         else
             coefficient = 1.0
         end
-        if "C_4" in keys(data_stark)  # C_4 provided explicitly, no temp dependence
-            C_4 = _assign_unit(data_stark["C_4"])
+        if "c_4" in keys_input  # C_4 provided explicitly, no temp dependence
+            C_4 = _assign_unit(data["c_4"])
             tmp_exp = 0.0
         else                    # Use C_4 recipe from Traving 1960, prop to T^1/6
-            C_4 = const_quadratic_stark(mass, χup, χlo, χ∞, Z)
+            C_4 = const_stark_quadratic(mass, χup, χlo, χ∞, Z)
             tmp_exp = 1/6
         end
-        return (ustrip((coefficient * C_4) |> u"m^3 / s"), tmp_exp)
+        tmp_const = coefficient * C_4
+    elseif type == "stark_linear"
+        @warn "Stark linear not yet supported"
+        tmp_const = 0.0u"m^3 / s"
+        tmp_exp = 0.0
     else
-        return (0.0, 1.0)
+        error("Unsupported type $type")
     end
+    return (ustrip(tmp_const |> u"m^3 / s"), tmp_exp)
 end

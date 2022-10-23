@@ -1,6 +1,3 @@
-using Muspel
-using Test
-
 @testset "lte.jl" begin
     H_empty = read_atom("test_atoms/H_test_empty.yaml")
     @test_throws MethodError saha_boltzmann(H_empty, 1, 1e15, 1.)

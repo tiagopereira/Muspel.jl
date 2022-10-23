@@ -1,7 +1,5 @@
 using AtomicData
 using Interpolations
-using Muspel
-using Test
 using Unitful
 
 @testset "background.jl" begin
@@ -10,118 +8,106 @@ using Unitful
     H = read_atom("test_atoms/H_test.yaml")
     H_empty = read_atom("test_atoms/H_test_empty.yaml")
     atoms = Vector{AtomicModel}([He, H, H_empty])
-    σ_atom_tables = σ_atoms_bf_tables(atoms)
-    λ = collect(LinRange(100, 10050, 3))
-    nλ = length(λ)
-    λ_index = 1:nλ
+    atoms_empty = Vector{AtomicModel}(undef, 0)
+    σ_atom_itp = get_atoms_bf_interpolant(atoms)
+    σ_atom_itp_empty = get_atoms_bf_interpolant(atoms_empty)
+    λ = [92., 500., 850., 1600,  2000.]
     log_ne = 15.0:0.05:20.0
     log_temp = 3.0:0.015:6.0
-    table = Tables_σ(λ, log_temp, log_ne, atoms)
-    table_no_atoms = Tables_σ(λ, log_temp, log_ne, Vector{AtomicModel}())
+    itp_lte = create_σ_itp_LTE(λ[1], log_temp, log_ne, H, atoms, σ_atom_itp)
+    itp_nlte = create_σ_itp_NLTE(λ[1], log_temp, log_ne, atoms, σ_atom_itp)
+    itp_nlte_empty = create_σ_itp_NLTE(λ[1], log_temp, log_ne, atoms_empty, σ_atom_itp_empty)
     temp = [2050.0, 5770.0, 10100.0]
     n = [1.0e15, 7.1e17, 1.0e20]
-    @testset "Tables_σ" begin
-        # Wrong argument types:
-        @test_throws MethodError Tables_σ(λ, collect(log_temp), log_ne, atoms)
-        @test_throws MethodError Tables_σ(λ, log_temp, collect(log_ne), atoms)
-        @test_throws MethodError Tables_σ(λ, convert(Float32, log_temp), log_ne, atoms)
-        @test_throws MethodError Tables_σ(λ, log_temp, convert(Float32, log_ne), atoms)
-        @test_throws MethodError Tables_σ([1f0,2f0,3f0], log_temp, log_ne, atoms)
-        # Output table shape:
-        @test length(table.table_nh) == nλ
-        @test length(table.table_ne) == nλ
-        # Output table contents against previous implementation:
-        @test all([table.table_nh[i](3.5, 17.5) for i in 1:nλ] .≈ [1.2692617030498545e-30,
-                                                                  3.5228922025484505e-30,
-                                                                  1.2077261039269983e-29])
-        @test all([table.table_ne[i](3.5) for i in 1:nλ] .≈ [2.654640736076545e-50,
-                                                             2.1537554455941164e-45,
-                                                             1.0736587512762791e-44])
+
+    @testset "σ_itp" begin
+        @test typeof(itp_lte) <: ExtinctionItpLTE{Float64}
+        @test typeof(itp_nlte) <: ExtinctionItpNLTE{Float64}
+        @test itp_nlte_empty.σ_atoms.(log_temp, 19) ≈ zeros(Float64, length(log_temp))
+        @test_throws MethodError create_σ_itp_LTE(λ[2], [3.1, 3.3], log_ne, H, atoms, σ_atom_itp)
+        @test_throws MethodError create_σ_itp_LTE(λ[2], log_temp, [15, 19], H, atoms, σ_atom_itp)
+        @test_throws MethodError create_σ_itp_NLTE(λ[2], [3.1, 3.3], log_ne, atoms, σ_atom_itp)
+        @test_throws MethodError create_σ_itp_NLTE(λ[2], log_temp, [15, 19], atoms, σ_atom_itp)
     end
-    @testset "α_cont_no_atoms" begin
-        # Against previous implementation:
-        @test all(
-            α_cont_no_atoms.(λ, 6e3, 2.0e18, 1.0e20, 1.0e20, 2.0e18) .≈ [
-                2.3161098249909214e-10, 6.921500616410073e-9, 2.8583289122838847e-8
-            ]
-        )
-    end
+
     @testset "α_cont" begin
-        # Against previous implementation:
-        @test all(α_cont.(
-            Ref(Vector{AtomicModel}()),
-            Ref(Vector{Vector{Interpolations.FilledExtrapolation}}()),
-            λ, 1e4, 2.0e19, 1.0e20, 1.0e20, 2.0e19
-        ) .≈ [1.623575604303239e-9, 2.598702182375118e-7, 1.144415527672781e-6])
-        @test all(α_cont.(
-            Ref(atoms),
-            Ref(σ_atom_tables),
-            λ, 6e3, 1.0e15, 1.0e20, 1.0e20, 1.0e15
-        ) .≈ [7.195575262883325e-12, 1.3271047477761172e-12, 4.3615492198140114e-12])
-    end
-    @testset "α_cont_fromtables" begin
-        # Against previous implementation:
-        @test all(α_cont_fromtables.(
-                Ref(table), λ_index, λ, 1e4, 2.0e19, 1.0e20, 1.0e20, 2.0e19
-            ) .≈ [7.157428857640934e-9, 2.598696308517904e-7, 1.1444077942980045e-6]
-        )
-        @test all(α_cont_fromtables.(
-                Ref(table), λ_index, λ, 6e3, 2.0e15, 1.0e20, 1.0e20, 2.0e15
-            ) .≈ [1.2119830339514767e-11, 2.655655166595975e-12, 8.733655789391957e-12]
-        )
-        @test all(α_cont_fromtables.(
-                Ref(table_no_atoms), λ_index, λ, 6e3, 2.0e15, 1.0e20, 1.0e20, 2.0e15
-            ) .≈ [2.315341055886709e-13, 2.655655166595975e-12, 8.733655789391957e-12]
-        )
-        # Test against α_cont and α_cont_no_atoms
-        @test all(
-            isapprox.(
-                α_cont_fromtables.(
-                    Ref(table), λ_index, λ, 6e3, 1.0e15,1.0e20, 1.0e20, 1.0e15),
-                α_cont.(
-                    Ref(atoms), Ref(σ_atom_tables), λ, 6e3, 1.0e15, 1.0e20, 1.0e20, 1.0e15),
-                rtol=1e-4
+        # Must check if this test prints out stuff!
+        for ni in n
+            ion_frac = [saha_boltzmann(H, t, ni, 1.)[end] for t in temp]
+            nHI = ni .* (1 .- ion_frac)
+            nHII = ni .* ion_frac
+            # Check if LTE and NLTE give same result, assuming Saha for hydrogen
+            @test isapprox(
+                α_cont.(Ref(itp_lte), temp, ni, ni),
+                α_cont.(Ref(itp_nlte), temp, ni, nHI, nHII),
+                rtol=1e-5,
             )
-        )
-        @test all(
-            isapprox.(
-                α_cont_fromtables.(Ref(table_no_atoms), λ_index, λ,
-                                        6e3, 2.0e18, 1.0e20, 1.0e20, 2.0e18),
-                α_cont_no_atoms.(λ, 6e3, 2.0e18, 1.0e20, 1.0e20, 2.0e18),
-                rtol=1e-4
+            # Check if interpolant with no atoms gives same result as α_cont_no_itp
+            @test isapprox(
+                α_cont_no_itp.(λ[1], temp, ni, nHI, nHII),
+                α_cont.(Ref(itp_nlte_empty), temp, ni, nHI, nHII),
+                rtol=1e-5,
             )
-        )
+        end
+        # Some checks against implementation
+        prev = [3.16626001405037e-9  1.239048159956712e-10  2.8360301410773617e-10
+                2.33657579854738e-8  4.053625784186357e-10  2.510766400844858e-10
+                3.19501480342208e-8  5.145340948777657e-10  8.563030045830751e-10
+                1.18347819704756e-9  2.089109743624956e-10  3.985164682993982e-9
+                2.09183827123449e-10 2.708131463500764e-10  6.807153975940548e-9]
+        for (i, λi) in enumerate(λ)
+            itp = create_σ_itp_LTE(λi, log_temp, log_ne, H, atoms, σ_atom_itp)
+            @test α_cont.(Ref(itp), temp, 1e18, 1e20) ≈ prev[i, :]
+        end
     end
+
+    @testset "α_cont_no_itp" begin
+        # Against previous implementation:
+        prev = [1.0527843527035139, 3.572751264093684, 4.628599312906391,
+                1.9725067321692636, 2.5417412522755837] * 1e-8
+        @test all(α_cont_no_itp.(λ, 6e3, 1e20, 1e20, 4e15) .≈ prev)
+        # Consistency check, Hmin maximum extinction
+        @test argmax(α_cont_no_itp.(λ, 6e3, 1e20, 1.0e20, 4e15)) == 3
+    end
+
+    @testset "σH" begin
+        # Against previous implementation:
+        prev = [0.38752066260764904, 2.9073809748885355, 3.9631886441218376,
+                1.3072036044702443, 1.8764158215614224] * 1e-28
+        @test all(Muspel.σH_continuum.(λ, 6e3, 1e20, 4e-5) .≈ prev)
+        @test argmax(Muspel.σH_continuum.(λ, 6e3, 1e20, 4e-5)) == 3
+        @test Muspel.σH_atoms_bf(σ_atom_itp_empty, atoms_empty, 500., 6000., 1e20) == 0.0
+        # Check that cross section matches data from atom with no stimulated emission
+        Ly_cont = atoms[2].continua[1]  # Lyman continuum
+        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, Ly_cont.λ[end], 0., 1e20) ≈ Ly_cont.σ[end]
+        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, λ[1], 6e3, 1e20) ≈ 2.884113795163476e-31
+        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, λ[end], 6e3, 1e20) ≈ 0.0
+    end
+
     @testset "σ_atoms_bf_tables" begin
-        @test length(σ_atom_tables) == length(atoms)
-        @test length.(σ_atom_tables) == length.([atom.continua for atom in atoms])
+        @test length(σ_atom_itp) == length(atoms)
+        @test length(σ_atom_itp_empty) == 0
+        @test length.(σ_atom_itp) == length.([atom.continua for atom in atoms])
         # Test against values from atomfile * abundances:
         # Using current abundances:
-        @test σ_atom_tables[1][1](50.427) / abund[atoms[1].element] == 6.783e-22
-        @test σ_atom_tables[1][2](14.609) / abund[atoms[1].element] == 4.844e-23
-        @test σ_atom_tables[2][2](364.70521515693) / abund[atoms[2].element] ≈ 1.379e-21
+        @test σ_atom_itp[1][1](50.427) / abund[atoms[1].element] == 6.783e-22
+        @test σ_atom_itp[1][2](14.609) / abund[atoms[1].element] == 4.844e-23
+        @test σ_atom_itp[2][2](364.70521515693) / abund[atoms[2].element] ≈ 1.379e-21
         # Using previous abundances:
-        @test σ_atom_tables[1][1](50.427) ≈ 6.783e-22 * 0.08203515443298176
-        @test σ_atom_tables[1][2](14.609) ≈ 4.844e-23 * 0.08203515443298176
-        @test σ_atom_tables[2][2](364.70521515693) ≈ 1.379e-21 * 1.0
+        @test σ_atom_itp[1][1](50.427) ≈ 6.783e-22 * 0.08203515443298176
+        @test σ_atom_itp[1][2](14.609) ≈ 4.844e-23 * 0.08203515443298176
+        @test σ_atom_itp[2][2](364.70521515693) ≈ 1.379e-21 * 1.0
         # A few edges:
-        @test σ_atom_tables[1][1](50.428) == 0
-        @test σ_atom_tables[1][1](12.7) == 0
-        @test σ_atom_tables[2][1](22.793) == 0
-        @test σ_atom_tables[2][2](364.8) == 0
-        @test σ_atom_tables[2][2](91.175) == 0
+        @test σ_atom_itp[1][1](50.428) == 0
+        @test σ_atom_itp[1][1](12.7) == 0
+        @test σ_atom_itp[2][1](22.793) == 0
+        @test σ_atom_itp[2][2](364.8) == 0
+        @test σ_atom_itp[2][2](91.175) == 0
     end
-    @testset "σ_atoms_bf" begin
+    @testset "σH_atoms_bf" begin
         # Against previous implementation:
-        @test σ_atoms_bf(σ_atom_tables, atoms, 251.0, 6000.0, 1.0e19) ≈ 5.2185826e-30
-        @test σ_atoms_bf(σ_atom_tables, atoms, 10.0, 6000.0, 1.0e19) == 0
-        @test σ_atoms_bf(σ_atom_tables, atoms, 370.0, 6000.0, 1.0e19) == 0
-    end
-    @testset "α_atoms_bf" begin
-        # Against previous implementation:
-        @test α_atoms_bf(
-            σ_atom_tables, atoms, 251.0, 6000.0, 1.0e19, 1.0e20) ≈ 5.2185826e-10
-        @test α_atoms_bf(σ_atom_tables, atoms, 10.0, 6000.0, 1.0e19, 1.0e20) == 0
-        @test α_atoms_bf(σ_atom_tables, atoms, 370.0, 6000.0, 1.0e19, 1.0e20) == 0
+        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, 251.0, 6000.0, 1.0e19) ≈ 5.2185826e-30
+        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, 10.0, 6000.0, 1.0e19) == 0
+        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, 370.0, 6000.0, 1.0e19) == 0
     end
 end
