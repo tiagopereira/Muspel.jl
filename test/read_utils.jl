@@ -3,7 +3,7 @@ using Unitful
 using YAML
 import PhysicalConstants.CODATA2018: h, c_0
 
-@testset "read_utils.jl" verbose=true begin
+@testset "read_utils.jl" begin
     @testset "read_atom" begin
         # Single/Double precision
         @test (typeof(read_atom("test_atoms/H_test.yaml")) == AtomicModel{4, Float64,

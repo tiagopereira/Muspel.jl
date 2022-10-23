@@ -1,4 +1,4 @@
-@testset "types.jl" verbose=true begin
+@testset "types.jl" begin
     @testset "Atmosphere" begin
         x64 = ones(Float64, 2)
         z64 = collect(0.:1.:6.)

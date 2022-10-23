@@ -1,4 +1,4 @@
-@testset "formal_solvers.jl" verbose=true begin
+@testset "formal_solvers.jl" begin
     @testset "Weights" begin
         @test all(Muspel._w2(60.) .== (1, 1))
         @test all(Muspel._w2(1.) .≈ (1-exp(-1), 1 - 2*exp(-1)))

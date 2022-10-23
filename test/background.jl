@@ -2,7 +2,7 @@ using AtomicData
 using Interpolations
 using Unitful
 
-@testset "background.jl" verbose=true begin
+@testset "background.jl" begin
     abund = get_solar_abundances()
     He = read_atom("test_atoms/He_test.yaml")
     H = read_atom("test_atoms/H_test.yaml")
