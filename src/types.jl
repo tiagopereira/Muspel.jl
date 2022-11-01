@@ -14,13 +14,15 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
     velocity_z::Array{FloatT, 3}
     electron_density::Array{FloatT, 3}
     hydrogen_density::Array{FloatT, 4}
-    function Atmosphere(x::Array{FloatT, 1},
-                        y::Array{FloatT, 1},
-                        z::Array{FloatT, 1},
-                        temperature::Array{FloatT, 3},
-                        velocity_z::Array{FloatT, 3},
-                        electron_density::Array{FloatT, 3},
-                        hydrogen_density::Array{FloatT, 4}) where FloatT <: AbstractFloat
+    function Atmosphere(
+        x::AbstractArray{FloatT, 1},
+        y::AbstractArray{FloatT, 1},
+        z::AbstractArray{FloatT, 1},
+        temperature::AbstractArray{FloatT, 3},
+        velocity_z::AbstractArray{FloatT, 3},
+        electron_density::AbstractArray{FloatT, 3},
+        hydrogen_density::AbstractArray{FloatT, 4}
+    ) where FloatT <: AbstractFloat
         nz, ny, nx, nh_levels = size(hydrogen_density)
         IntT = typeof(nz)
         @assert (nz, ny, nx) == (length(z), length(y), length(x))
@@ -32,7 +34,6 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
                           temperature, velocity_z, electron_density, hydrogen_density)
     end
 end
-
 
 abstract type AbstractBroadening{T <: AbstractFloat} end
 
