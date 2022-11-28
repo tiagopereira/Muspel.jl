@@ -10,6 +10,7 @@ export get_atoms_bf_interpolant, create_σ_itp_LTE, create_σ_itp_NLTE
 export piecewise_1D_nn, piecewise_1D_linear, feautrier
 export read_atmos_rh, read_pops_rh
 export read_atmos_multi3d, read_pops_multi3d
+export read_atmos_multi3d_double, read_pops_multi3d_double
 
 using AtomicData
 using Interpolations
@@ -20,6 +21,7 @@ using Unitful
 using YAML
 import PhysicalConstants.CODATA2018: h, k_B, R_∞, c_0, m_e, m_u, e, ε_0, a_0
 using ProgressMeter
+
 
 include("types.jl")
 include("read_utils.jl")

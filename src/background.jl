@@ -22,7 +22,7 @@ populations are computed in LTE (simplifies calculations).
 struct ExtinctionItpLTE{
     T,
     ITP_2D <: Interpolations.AbstractInterpolation{T, 2}
-}  <: AbstractBroadening{T}
+}  <: AbstractExtinctionItp{T}
     σ_H::ITP_2D
     σ_H2::ITP_2D
     λ::T
@@ -37,7 +37,7 @@ struct ExtinctionItpNLTE{
     T,
     ITP_2D <: Interpolations.AbstractInterpolation{T, 2},
     ITP_1D <: Interpolations.AbstractInterpolation{T, 1}
-}  <: AbstractBroadening{T}
+}  <: AbstractExtinctionItp{T}
     σ_atoms::ITP_2D
     σ_hminus::ITP_1D
     σ_h2plus::ITP_1D
@@ -116,7 +116,7 @@ Calculates continuum extinction in m^-1 using interpolant structure.
 julia> npts = 100;
 julia> log_temp = LinRange(3.3, 5, npts);
 julia> log_ne = LinRange(15, 23, npts);
-julia> itp_nlte = create_σ_itp_LTE(500., log_temp, log_ne,
+julia> itp_nlte = create_σ_itp_NLTE(500., log_temp, log_ne,
                                   background_atoms, atom_interpolants);
 julia> α_cont(itp_nlte, 6000., 1e20, 1e20, 4.2462e15)
 3.5998540603635895e-8
