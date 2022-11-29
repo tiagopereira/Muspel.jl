@@ -112,6 +112,46 @@ end
 
 
 """
+Similar to piecewise_1D_linear but does not allocate.
+"""
+function piecewise_1D_linear2!(
+    z::AbstractVector{T},
+    α::AbstractVector{T},
+    source_function::AbstractVector{T},
+    intensity::AbstractVector{T};
+    to_end::Bool=false,
+    initial_condition=:source
+) where T <: AbstractFloat
+    ndep = length(z)
+    if to_end
+        start = 1
+        incr = 1
+        depth_range = 2:ndep
+    else
+        start = ndep
+        incr = -1
+        depth_range = ndep-1:-1:1
+    end
+    if initial_condition == :source
+        intensity[start] = source_function[start]
+    elseif initial_condition == :zero
+        intensity[start] *= 0
+    else
+        error("NotImplemented initial condition $initial_condition")
+    end
+    for i in depth_range
+        Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
+        ΔS = (source_function[i-incr] - source_function[i]) / Δτ
+        w1, w2 = _w2(Δτ)
+        intensity[i] = (1 - w1)*intensity[i-incr] + w1*source_function[i] + w2*ΔS
+    end
+    return nothing
+end
+
+
+
+
+"""
     function feautrier(
         z::Array{<:Unitful.Length{T}, 1},
         α::Array{<:PerLength{T}, 1},
