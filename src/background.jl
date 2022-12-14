@@ -20,12 +20,13 @@ Interpolant structure for continuum extinction, for use when hydrogen
 populations are computed in LTE (simplifies calculations).
 """
 struct ExtinctionItpLTE{
-    T,
-    ITP_2D <: Interpolations.AbstractInterpolation{T, 2}
-}  <: AbstractExtinctionItp{T}
+    T1,
+    T2,
+    ITP_2D <: Interpolations.AbstractInterpolation{T1, 2}
+}  <: AbstractExtinctionItp{T1}
     σ_H::ITP_2D
     σ_H2::ITP_2D
-    λ::T
+    λ::T2
 end
 
 
@@ -79,7 +80,7 @@ julia> α_cont(itp_lte, 6000., 1e20, 1e20)
 ```
 """
 function α_cont(
-    itp::ExtinctionItpLTE{T},
+    itp::ExtinctionItpLTE{<: Real},
     temperature::T,
     electron_density::T,
     hydrogen_density::T,
@@ -87,7 +88,7 @@ function α_cont(
     log_temp = log10(temperature)
     log_ne = log10(electron_density)
     α = itp.σ_H(log_temp, log_ne) * hydrogen_density
-    α += itp.σ_H2(log_temp, log_ne) * hydrogen_density ^ 2
+    α += (itp.σ_H2(log_temp, log_ne) * hydrogen_density) * hydrogen_density
     α += σ_THOMSON * electron_density
     return α
 end
@@ -123,7 +124,7 @@ julia> α_cont(itp_nlte, 6000., 1e20, 1e20, 4.2462e15)
 ```
 """
 function α_cont(
-    itp::ExtinctionItpNLTE{T},
+    itp::ExtinctionItpNLTE{<: Real},
     temperature::T,
     electron_density::T,
     h_neutral_density::T,
@@ -133,9 +134,9 @@ function α_cont(
     log_ne = log10(electron_density)
     hydrogen_density = h_neutral_density + proton_density
     α = itp.σ_atoms(log_temp, log_ne) * hydrogen_density
-    α += itp.σ_hminus(log_temp) * electron_density * h_neutral_density
-    α += itp.σ_h_ff(log_temp) * electron_density * proton_density
-    α += itp.σ_h2plus(log_temp) * proton_density * h_neutral_density
+    α += (itp.σ_hminus(log_temp) * electron_density) * h_neutral_density
+    α += (itp.σ_h_ff(log_temp) * electron_density) * proton_density
+    α += (itp.σ_h2plus(log_temp) * proton_density) * h_neutral_density
     α += ustrip(σ_rayleigh_h(itp.λ * u"nm")) * h_neutral_density
     α += σ_THOMSON * electron_density
     return α
@@ -275,7 +276,7 @@ Compute the bound-free cross-sections per hydrogen atom from bf transitions in m
 function σH_atoms_bf(
     atom_interpolants::Vector{Vector{Interpolations.FilledExtrapolation}},
     atoms::AbstractVector{AtomicModel},
-    λ::T,
+    λ::Real,
     temperature::T,
     electron_density::T
 ) where T <: AbstractFloat
@@ -303,10 +304,10 @@ Compute continuum cross sections in m^2 per hydrogen atom.
 - `ion_frac` : ionisation fraction.
 """
 function σH_continuum(
-    λ::T,
+    λ::Real,
     temperature::T,
     electron_density::T,
-    ion_frac::T
+    ion_frac::Real
 )::T where T <: AbstractFloat
     λ_u = λ * u"nm"
     ν_u = c_0 / λ_u
@@ -347,21 +348,22 @@ Create σ interpolant structure for the case of LTE hydrogen populations.
 - `atom_interpolants` : sequence of bf interpolants corresponding to each background atom
 """
 function create_σ_itp_LTE(
-    λ::T,
+    λ::Real,
     log_temp::AbstractRange{T},
     log_ne::AbstractRange{T},
     H_atom::AtomicModel,
     background_atoms::AbstractVector{AtomicModel},
     atom_interpolants::Vector{Vector{Interpolations.FilledExtrapolation}},
-) where T <: AbstractFloat
+) where T <: Real
     nT = length(log_temp)
     nNe = length(log_ne)
-    table_H = Array{T}(undef, nT, nNe)
-    table_H2 = Array{T}(undef, nT, nNe)
+    # Tables must be Float64 to avoid loss in accuracy
+    table_H = Array{Float64}(undef, nT, nNe)
+    table_H2 = Array{Float64}(undef, nT, nNe)
     λ_u = λ * u"nm"
     for index in CartesianIndices((nT, nNe))
         iT, ie = Tuple(index)
-        temp =  10 ^ log_temp[iT]
+        temp = 10 ^ log_temp[iT]
         ne = 10 ^ log_ne[ie]
         ion_frac = saha_boltzmann(H_atom, temp, ne, 1.0)[end]
         table_H[iT, ie] = σH_continuum(λ, temp, ne, ion_frac)
@@ -394,18 +396,20 @@ Create σ interpolant structure for the case of LTE hydrogen populations.
 - `atom_interpolants` : sequence of bf interpolants corresponding to each background atom
 """
 function create_σ_itp_NLTE(
-    λ::T,
+    λ::Real,
     log_temp::AbstractRange{T},
     log_ne::AbstractRange{T},
     background_atoms::AbstractVector{AtomicModel},
     atom_interpolants::Vector{Vector{Interpolations.FilledExtrapolation}},
-) where T <: AbstractFloat
+) where T <: Real
     λ_u = λ * u"nm"
     ν_u = c_0 / λ_u
     nT = length(log_temp)
     nNe = length(log_ne)
-    table_atoms = Array{T}(undef, nT, nNe)
-    table = Array{T}(undef, nT, 3)
+    log_temp = Float64.(log_temp)
+    # Tables must be Float64 to avoid loss in accuracy
+    table_atoms = Array{Float64}(undef, nT, nNe)
+    table = Array{Float64}(undef, nT, 3)
     for index in CartesianIndices((nT, nNe))
         iT, ie = Tuple(index)
         temp =  10 ^ log_temp[iT]

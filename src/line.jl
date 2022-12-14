@@ -29,7 +29,7 @@ function calc_broadening(
     γ = zero(T)
     # Natural broadening
     γ += γ_params.natural
-    # van der Waals broadening (ABO or Unsold recipes), perturbed is H I
+    # van der Waals broadening (ABO or Unsold recipes), perturber is H I
     γ += _γ_add(γ_params.hydrogen_const, γ_params.hydrogen_exp, temperature, h_neutral_density)
     # Quadratic Stark broadening, perturber are electrons
     γ += _γ_add(γ_params.electron_const, γ_params.electron_exp, temperature, e_density)
@@ -41,9 +41,9 @@ function calc_broadening(
 end
 
 function _γ_add(
-    multiplier::AbstractVector{T},
-    exponent::AbstractVector{T},
-    base::T,
+    multiplier::AbstractVector{<: Real},
+    exponent::AbstractVector{<: Real},
+    base::AbstractFloat,
     perturber_density::T,
 )::T where T <: AbstractFloat
     γ = zero(T)

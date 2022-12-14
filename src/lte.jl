@@ -44,7 +44,7 @@ function saha_boltzmann(
     stage::SVector,
     temperature::T,
     electron_density::T,
-    atom_density::T,
+    atom_density::Real,
 ) where T <: AbstractFloat
     populations = MVector{length(χ), T}(undef)
     saha_boltzmann!(χ, g, stage, temperature, electron_density, atom_density, populations)
@@ -55,7 +55,7 @@ function saha_boltzmann(
     atom::AtomicModel,
     temperature::T,
     electron_density::T,
-    atom_density::T,
+    atom_density::Real,
 ) where T <: AbstractFloat
     saha_boltzmann(atom.χ, atom.g, atom.stage, temperature, electron_density, atom_density)
 end
@@ -100,7 +100,7 @@ function saha_boltzmann!(
     stage::SVector,
     temperature::T,
     electron_density::T,
-    atom_density::T,
+    atom_density::Real,
     populations::AbstractArray{T, 1},
 ) where T <: AbstractFloat
     nlevels = length(χ)
@@ -128,7 +128,7 @@ function saha_boltzmann!(
     atom::AtomicModel,
     temperature::T,
     electron_density::T,
-    atom_density::T,
+    atom_density::Real,
     populations::AbstractArray{T, 1},
 ) where T <: AbstractFloat
     saha_boltzmann!(
