@@ -6,14 +6,14 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
     nx::IntT
     ny::IntT
     nz::IntT
-    nh_levels::IntT
     x::Array{FloatT, 1}
     y::Array{FloatT, 1}
     z::Array{FloatT, 1}
     temperature::Array{FloatT, 3}
     velocity_z::Array{FloatT, 3}
     electron_density::Array{FloatT, 3}
-    hydrogen_density::Array{FloatT, 4}
+    hydrogen1_density::Array{FloatT, 3}  # neutral hydrogen across all levels
+    proton_density::Array{FloatT, 3}
     function Atmosphere(
         x::AbstractArray{FloatT, 1},
         y::AbstractArray{FloatT, 1},
@@ -21,7 +21,7 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
         temperature::AbstractArray{FloatT, 3},
         velocity_z::AbstractArray{FloatT, 3},
         electron_density::AbstractArray{FloatT, 3},
-        hydrogen_density::AbstractArray{FloatT, 4}
+        hydrogen_density::AbstractArray{FloatT, 4},
     ) where FloatT <: AbstractFloat
         nz, ny, nx, nh_levels = size(hydrogen_density)
         IntT = typeof(nz)
@@ -29,11 +29,41 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
         @assert size(temperature) == (nz, ny, nx)
         @assert size(velocity_z) == (nz, ny, nx)
         @assert size(electron_density) == (nz, ny, nx)
-        new{FloatT, IntT}(nx, ny, nz, nh_levels,
+        if nh_levels == 1  # hydrogen populations not given, must use Saha to get ionisation
+            hpops = view(hydrogen_density, :, :, :, 1)
+            ATOM_FILE = "H_3.yaml"
+            filepath = joinpath(@__DIR__, "..", "data", "atoms", ATOM_FILE)
+            if isfile(filepath)
+                H_atom = read_atom(filepath)
+                hydrogen1_density = Array{FloatT}(undef, nz, ny, nx)
+                proton_density = similar(hydrogen1_density)
+                tmp = Vector{FloatT}(undef, H_atom.nlevels)
+
+                for i in eachindex(temperature)
+                    saha_boltzmann!(
+                        H_atom,
+                        temperature[i],
+                        electron_density[i],
+                        hpops[i],
+                        tmp
+                    )
+                    proton_density[i] = tmp[end]
+                    hydrogen1_density[i] = max(0, hpops[i] - proton_density[i])
+                end
+            else
+                error("Hydrogen model atom $ATOM_FILE was not found.")
+            end
+        else
+            hydrogen1_density = sum(hydrogen_density[:, :, :, 1:end-1], dims=4)[:, :, :, 1]
+            proton_density = hydrogen_density[:, :, :, end]
+        end
+        new{FloatT, IntT}(nx, ny, nz,
                           x, y, z,
-                          temperature, velocity_z, electron_density, hydrogen_density)
+                          temperature, velocity_z, electron_density,
+                          hydrogen1_density, proton_density)
     end
 end
+
 
 abstract type AbstractBroadening{T <: AbstractFloat} end
 

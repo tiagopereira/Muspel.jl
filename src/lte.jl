@@ -39,13 +39,13 @@ distribution.
 - `populations`: MVector{nlevels} with relative level populations in m^-3
 """
 function saha_boltzmann(
-    χ::SVector,
-    g::SVector,
-    stage::SVector,
+    χ::SVector{N, <: Real},
+    g::SVector{N, <: Real},
+    stage::SVector{N, <: Real},
     temperature::T,
     electron_density::T,
     atom_density::Real,
-) where T <: AbstractFloat
+) where {N, T <: AbstractFloat}
     populations = MVector{length(χ), T}(undef)
     saha_boltzmann!(χ, g, stage, temperature, electron_density, atom_density, populations)
     return populations
@@ -95,14 +95,14 @@ according to the Saha-Boltzmann distribution, placing them in an existing
 - `populations`: 1D array for output, must be same length as number of levels
 """
 function saha_boltzmann!(
-    χ::SVector,
-    g::SVector,
-    stage::SVector,
-    temperature::T,
-    electron_density::T,
+    χ::SVector{N, <: Real},
+    g::SVector{N, <: Real},
+    stage::SVector{N, <: Real},
+    temperature::Real,
+    electron_density::Real,
     atom_density::Real,
-    populations::AbstractArray{T, 1},
-) where T <: AbstractFloat
+    populations::AbstractVector{T},
+) where {N, T <: AbstractFloat}
     nlevels = length(χ)
     @assert nlevels == length(populations)
     kT = convert(T, k_B_u * temperature)
@@ -121,16 +121,17 @@ function saha_boltzmann!(
     for i = 1:nlevels
         populations[i] *= atom_density / total
     end
-    return
+    return nothing
 end
+
 
 function saha_boltzmann!(
     atom::AtomicModel,
-    temperature::T,
-    electron_density::T,
+    temperature::Real,
+    electron_density::Real,
     atom_density::Real,
-    populations::AbstractArray{T, 1},
-) where T <: AbstractFloat
+    populations::AbstractVector{<: Real},
+)
     saha_boltzmann!(
         atom.χ,
         atom.g,
@@ -140,4 +141,5 @@ function saha_boltzmann!(
         atom_density,
         populations
     )
+    return nothing
 end

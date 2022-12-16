@@ -191,7 +191,7 @@ function α_cont_no_itp(
 end
 
 #=----------------------------------------------------------------------------
-            Helper functions to get σ from background atoms.
+            Functions to get bf cross sections from background atoms.
 ----------------------------------------------------------------------------=#
 
 """
@@ -324,7 +324,7 @@ end
 
 
 #=----------------------------------------------------------------------------
-            Helper functions for interpolants
+        Functions to create interpolants of continuum cross section
 ----------------------------------------------------------------------------=#
 
 """
@@ -386,7 +386,7 @@ end
         atom_interpolants::Vector{Vector{Interpolations.FilledExtrapolation}},
     )
 
-Create σ interpolant structure for the case of LTE hydrogen populations.
+Create σ interpolant structure for the case of NLTE hydrogen populations.
 
 # Arguments
 - `λ`: wavelength in nm.
@@ -406,7 +406,6 @@ function create_σ_itp_NLTE(
     ν_u = c_0 / λ_u
     nT = length(log_temp)
     nNe = length(log_ne)
-    log_temp = Float64.(log_temp)
     # Tables must be Float64 to avoid loss in accuracy
     table_atoms = Array{Float64}(undef, nT, nNe)
     table = Array{Float64}(undef, nT, 3)
