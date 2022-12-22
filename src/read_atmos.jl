@@ -10,7 +10,7 @@ using FortranFiles
 """
 Reads RH atmosphere. Returns always in single precision.
 """
-function read_atmos_rh(atmos_file; index=1)::Atmosphere{Float32, Int64}
+function read_atmos_rh(atmos_file; index=1)::Atmosphere{Float32}
     temperature = h5read(atmos_file, "temperature", (:, :, :, index))
     ne = h5read(atmos_file, "electron_density", (:, :, :, index))
     nH = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
@@ -22,7 +22,7 @@ function read_atmos_rh(atmos_file; index=1)::Atmosphere{Float32, Int64}
 end
 
 # For testing purposes
-function read_atmos_rh_double(atmos_file; index=1)::Atmosphere{Float64, Int64}
+function read_atmos_rh_double(atmos_file; index=1)::Atmosphere{Float64}
     temperature = h5read(atmos_file, "temperature", (:, :, :, index))
     ne = h5read(atmos_file, "electron_density", (:, :, :, index))
     nH = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))

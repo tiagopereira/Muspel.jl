@@ -35,15 +35,16 @@ Interpolant structure for continuum extinction, for use when hydrogen
 populations are given explicitly (e.g. non-equilibrium ionisation or NLTE).
 """
 struct ExtinctionItpNLTE{
-    T,
-    ITP_2D <: Interpolations.AbstractInterpolation{T, 2},
-    ITP_1D <: Interpolations.AbstractInterpolation{T, 1}
-}  <: AbstractExtinctionItp{T}
+    T1,
+    T2,
+    ITP_2D <: Interpolations.AbstractInterpolation{T1, 2},
+    ITP_1D <: Interpolations.AbstractInterpolation{T1, 1}
+}  <: AbstractExtinctionItp{T1}
     σ_atoms::ITP_2D
     σ_hminus::ITP_1D
     σ_h2plus::ITP_1D
     σ_h_ff::ITP_1D
-    λ::T
+    λ::T2
 end
 
 
@@ -195,64 +196,6 @@ end
 ----------------------------------------------------------------------------=#
 
 """
-    get_atoms_bf_interpolant(atoms::AbstractVector{AtomicModel})
-
-Returns interpolants for bound-free cross section data multiplied with
-abundances for each atom.
-
-# Arguments
-- `atoms`: A Vector of AtomicModels, with continua.
-
-# Returns
-- `tables::Vector{Vector{Interpolations.FilledExtrapolation}}`:
-    Interpolation functions.
-
-# Examples
-```julia-repl
-julia> ATOM_PATH = "/my/atoms/dir/";
-julia> atoms = [
-    "Al.yaml",
-    "C.yaml",
-    "Ca.yaml",
-    "Fe.yaml",
-    "H_6.yaml",
-    "He.yaml",
-    "KI_fine.yaml",
-    "LiI.yaml",
-    "Mg.yaml",
-    "N.yaml",
-    "Na.yaml",
-    "NiI.yaml",
-    "O.yaml",
-    "S.yaml",
-    "Si.yaml",
-];
-julia> background_atoms = Vector{AtomicModel}(undef, length(atoms))
-julia> for (index, atom_file) in enumerate(atoms)
-           background_atoms[index] = read_atom(join([ATOM_PATH, atom_file]))
-       end
-julia> atom_interpolants = get_atoms_bf_interpolant(background_atoms);
-```
-"""
-function get_atoms_bf_interpolant(atoms::AbstractVector{AtomicModel})
-    tables = [
-        Vector{Interpolations.FilledExtrapolation}(
-            undef, length(atom.continua)) for atom in atoms
-    ]
-    for (i, atom) in enumerate(atoms)
-        for j in 1:length(atom.continua)
-            tables[i][j] = linear_interpolation(
-                atom.continua[j].λ,
-                atom.continua[j].σ * ABUNDANCES[atom.element],
-                extrapolation_bc=0
-            )
-        end
-    end
-    return tables
-end
-
-
-"""
     σH_atoms_bf(
         σ_atom_tables::Vector{Vector{Interpolations.FilledExtrapolation}},
         atoms::AbstractVector{AtomicModel},
@@ -326,6 +269,123 @@ end
 #=----------------------------------------------------------------------------
         Functions to create interpolants of continuum cross section
 ----------------------------------------------------------------------------=#
+"""
+    get_σ_itp(atmos::Atmosphere, λ::Real, atom_files::Vector{String}; npts=100)
+
+Construct monochromatic continuum cross section interpolant for a given atmosphere,
+and wavelength λ in nm. Includes all the processes included in `create_σ_itp_NLTE`,
+plus all the bound-free cross sections present in all model atom files in the
+list `atom_files`.
+
+Here `atmos` is used only to get the minimum and maximum values of temperature
+and electron density, to build the interpolation table. The number of points in the
+table (both for log(temperature) and log(electron density)) is given by `npts`
+(default 100).
+
+# Returns
+- ExtinctionItpNLTE: continuum cross section interpolant for explicit hydrogen
+  populations. To be used in function `α_cont`.
+
+# Examples
+```julia-repl
+julia> ATOM_PATH = AtomicData.get_atom_dir();
+julia> bckgr_atoms = [
+    "Al.yaml",
+    "C.yaml",
+    "Ca.yaml",
+    "Fe.yaml",
+    "H_6.yaml",
+    "He.yaml",
+    "KI.yaml",
+    "Mg.yaml",
+    "N.yaml",
+    "Na.yaml",
+    "NiI.yaml",
+    "O.yaml",
+    "S.yaml",
+    "Si.yaml",
+];
+julia> atom_files = [joinpath(ATOM_PATH, a) for a in bckgr_atoms];
+julia> atmos = atmos = read_atmos_rh(MY_ATMOS);
+julia> itp = get_σ_itp(atmos, 500.0, atom_files)
+```
+"""
+function get_σ_itp(atmos::Atmosphere, λ::Real, atom_files::Vector{String}; npts=100)
+    bckgr_atoms = Vector{AtomicModel}(undef, length(atom_files))
+    for (index, file) in enumerate(atom_files)
+        if isfile(file)
+            bckgr_atoms[index] = read_atom(file)
+        else
+            error("Could not open background atom $file")
+        end
+    end
+    atom_interpolants = get_atoms_bf_interpolant(bckgr_atoms)
+    t_range = log10.([Float64(minimum(atmos.temperature)),
+                      Float64(maximum(atmos.temperature))])
+    ne_range = log10.([Float64(minimum(atmos.electron_density)),
+                       Float64(maximum(atmos.electron_density))])
+    log_temp = LinRange(minimum(t_range), maximum(t_range), npts)
+    log_ne = LinRange(minimum(ne_range), maximum(ne_range), npts)
+    return create_σ_itp_NLTE(λ, log_temp, log_ne, bckgr_atoms, atom_interpolants)
+end
+
+
+"""
+    get_atoms_bf_interpolant(atoms::AbstractVector{AtomicModel})
+
+Returns interpolants for bound-free cross section data multiplied with
+abundances for each atom.
+
+# Arguments
+- `atoms`: A Vector of AtomicModels, with continua.
+
+# Returns
+- `tables::Vector{Vector{Interpolations.FilledExtrapolation}}`:
+    Interpolation functions.
+
+# Examples
+```julia-repl
+julia> ATOM_PATH = "/my/atoms/dir/";
+julia> atoms = [
+    "Al.yaml",
+    "C.yaml",
+    "Ca.yaml",
+    "Fe.yaml",
+    "H_6.yaml",
+    "He.yaml",
+    "KI.yaml",
+    "Mg.yaml",
+    "N.yaml",
+    "Na.yaml",
+    "NiI.yaml",
+    "O.yaml",
+    "S.yaml",
+    "Si.yaml",
+];
+julia> background_atoms = Vector{AtomicModel}(undef, length(atoms))
+julia> for (index, atom_file) in enumerate(atoms)
+           background_atoms[index] = read_atom(join([ATOM_PATH, atom_file]))
+       end
+julia> atom_interpolants = get_atoms_bf_interpolant(background_atoms);
+```
+"""
+function get_atoms_bf_interpolant(atoms::AbstractVector{AtomicModel})
+    tables = [
+        Vector{Interpolations.FilledExtrapolation}(
+            undef, length(atom.continua)) for atom in atoms
+    ]
+    for (i, atom) in enumerate(atoms)
+        for j in 1:length(atom.continua)
+            tables[i][j] = linear_interpolation(
+                atom.continua[j].λ,
+                atom.continua[j].σ * ABUNDANCES[atom.element],
+                extrapolation_bc=0
+            )
+        end
+    end
+    return tables
+end
+
 
 """
     create_σ_itp_LTE(
@@ -337,7 +397,13 @@ end
         atom_interpolants::Vector{Vector{Interpolations.FilledExtrapolation}},
     )
 
-Create σ interpolant structure for the case of LTE hydrogen populations.
+Create interpolant structure continuum cross section, for the case when hydrogen
+populations are not given explicitly (and are calculated using Saha). Includes cross
+sections from bound-free transition present in background atoms, plus the
+following sources of extinction:
+
+    * sources from σH_continuum
+    * H ff
 
 # Arguments
 - `λ`: wavelength in nm.
@@ -379,14 +445,20 @@ end
 
 """
     create_σ_itp_NLTE(
-        λ::T,
+        λ::Real,
         log_temp::AbstractVector{T},
         log_ne::AbstractVector{T},
         background_atoms::AbstractVector{AtomicModel},
         atom_interpolants::Vector{Vector{Interpolations.FilledExtrapolation}},
     )
 
-Create σ interpolant structure for the case of NLTE hydrogen populations.
+Create interpolant structure continuum cross section, for the case of explicit
+hydrogen populations. Includes cross sections from bound-free transition present in
+background atoms, plus the following sources of extinction:
+
+* Hminus bf and ff
+* H2+ molecule bf and ff
+* H ff
 
 # Arguments
 - `λ`: wavelength in nm.

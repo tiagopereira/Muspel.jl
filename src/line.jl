@@ -40,6 +40,7 @@ function calc_broadening(
     return γ
 end
 
+
 function _γ_add(
     multiplier::AbstractVector{<: Real},
     exponent::AbstractVector{<: Real},
@@ -53,7 +54,6 @@ function _γ_add(
     γ *= perturber_density
     return γ
 end
-
 
 
 function create_voigt_itp(a::AbstractArray{T}, v::AbstractRange) where {T <: AbstractFloat}

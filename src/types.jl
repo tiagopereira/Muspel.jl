@@ -2,10 +2,12 @@
 Collection of types.
 """
 
-struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
-    nx::IntT
-    ny::IntT
-    nz::IntT
+abstract type AbstractAtmos{T <: AbstractFloat} end
+
+struct Atmosphere{FloatT <: AbstractFloat}
+    nx::Int64
+    ny::Int64
+    nz::Int64
     x::Array{FloatT, 1}
     y::Array{FloatT, 1}
     z::Array{FloatT, 1}
@@ -24,7 +26,6 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
         hydrogen_density::AbstractArray{FloatT, 4},
     ) where FloatT <: AbstractFloat
         nz, ny, nx, nh_levels = size(hydrogen_density)
-        IntT = typeof(nz)
         @assert (nz, ny, nx) == (length(z), length(y), length(x))
         @assert size(temperature) == (nz, ny, nx)
         @assert size(velocity_z) == (nz, ny, nx)
@@ -57,10 +58,10 @@ struct Atmosphere{FloatT <: AbstractFloat, IntT <: Integer}
             hydrogen1_density = sum(hydrogen_density[:, :, :, 1:end-1], dims=4)[:, :, :, 1]
             proton_density = hydrogen_density[:, :, :, end]
         end
-        new{FloatT, IntT}(nx, ny, nz,
-                          x, y, z,
-                          temperature, velocity_z, electron_density,
-                          hydrogen1_density, proton_density)
+        new{FloatT}(nx, ny, nz,
+                    x, y, z,
+                    temperature, velocity_z, electron_density,
+                    hydrogen1_density, proton_density)
     end
 end
 
