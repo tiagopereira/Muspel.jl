@@ -145,6 +145,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
         ustrip(Bul),
         ustrip(λ0),
         f_value,
+        ustrip(mass),
         ustrip.(λ),
         prd, voigt,
         label[up],

@@ -91,6 +91,7 @@ struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
     Bul::FloatT
     λ0::FloatT  # in nm
     f_value::FloatT
+    mass::FloatT
     λ::Vector{FloatT}
     PRD::Bool
     Voigt::Bool
