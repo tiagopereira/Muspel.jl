@@ -4,7 +4,7 @@ Collection of types.
 
 abstract type AbstractAtmos{T <: AbstractFloat} end
 
-struct Atmosphere{FloatT <: AbstractFloat}
+struct Atmosphere{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
     nx::Int64
     ny::Int64
     nz::Int64
@@ -40,7 +40,7 @@ struct Atmosphere{FloatT <: AbstractFloat}
                 proton_density = similar(hydrogen1_density)
                 tmp = Vector{FloatT}(undef, H_atom.nlevels)
 
-                for i in eachindex(temperature)
+                Threads.@threads for i in eachindex(temperature)
                     saha_boltzmann!(
                         H_atom,
                         temperature[i],
@@ -55,8 +55,13 @@ struct Atmosphere{FloatT <: AbstractFloat}
                 error("Hydrogen model atom $ATOM_FILE was not found.")
             end
         else
-            hydrogen1_density = sum(hydrogen_density[:, :, :, 1:end-1], dims=4)[:, :, :, 1]
+            hydrogen1_density = Array{FloatT}(undef, nz, ny, nx)
             proton_density = hydrogen_density[:, :, :, end]
+            Threads.@threads for i in 1:nx
+                for j in 1:ny, k in 1:nz
+                    hydrogen1_density[k, j, i] = sum(hydrogen_density[k, j, i, 1:end-1])
+                end
+            end
         end
         new{FloatT}(nx, ny, nz,
                     x, y, z,
@@ -64,6 +69,28 @@ struct Atmosphere{FloatT <: AbstractFloat}
                     hydrogen1_density, proton_density)
     end
 end
+
+
+struct Atmosphere1D{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
+    nz::Int64
+    z::Array{FloatT, 1}
+    temperature::Array{FloatT, 1}
+    velocity_z::Array{FloatT, 1}
+    electron_density::Array{FloatT, 1}
+    hydrogen1_density::Array{FloatT, 1}
+    proton_density::Array{FloatT, 1}
+end
+
+
+Base.getindex(a::Atmosphere, i, j) = Atmosphere1D(
+    a.nz,
+    a.z,
+    a.temperature[:,i, j],
+    a.velocity_z[:,i, j],
+    a.electron_density[:,i, j],
+    a.hydrogen1_density[:,i, j],
+    a.proton_density[:, i, j],
+)
 
 
 abstract type AbstractBroadening{T <: AbstractFloat} end

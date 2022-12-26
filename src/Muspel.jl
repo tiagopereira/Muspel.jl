@@ -1,6 +1,7 @@
 module Muspel
 
-export Atmosphere, AtomicLine, AtomicContinuum, AtomicModel
+export Atmosphere, Atmosphere1D
+export AtomicLine, AtomicContinuum, AtomicModel
 export AbstractBroadening, LineBroadening
 export read_atom
 export saha_boltzmann, saha_boltzmann!
@@ -13,6 +14,7 @@ export read_atmos_multi3d_double, read_pops_multi3d_double
 export doppler_width, damping, calc_broadening, create_voigt_itp
 export blackbody_λ
 export RTBuffer
+export calc_line_1D
 
 using AtomicData
 using Interpolations
@@ -34,5 +36,6 @@ include("background.jl")
 include("formal_solvers.jl")
 include("read_atmos.jl")
 include("utils.jl")
+include("intensity.jl")
 
 end

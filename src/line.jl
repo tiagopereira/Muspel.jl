@@ -58,9 +58,9 @@ end
 
 function create_voigt_itp(a::AbstractArray{T}, v::AbstractRange) where {T <: AbstractFloat}
     tmp = Array{T, 2}(undef, length(a), length(v))
-    for (iv, v_value) in enumerate(v)
+    Threads.@threads for iv in eachindex(v)
         for (ia, a_value) in enumerate(a)
-            z = a_value - v_value * im
+            z = a_value - v[iv] * im
             tmp[ia, iv] = real(erfcx(z))
         end
     end
