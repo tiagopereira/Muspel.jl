@@ -14,7 +14,7 @@ export read_atmos_multi3d_double, read_pops_multi3d_double
 export doppler_width, damping, calc_broadening, create_voigt_itp
 export blackbody_λ
 export RTBuffer
-export calc_line_1D
+export calc_line_1D!
 
 using AtomicData
 using Interpolations
