@@ -114,7 +114,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
                 nλ += 1
             end
             vξ = _assign_unit(waves["qnorm"])
-            λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=false)
+            λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=true)
         else
             error("Unrecognised wavelength type")
         end

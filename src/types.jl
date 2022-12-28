@@ -54,6 +54,9 @@ struct Atmosphere{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
             else
                 error("Hydrogen model atom $ATOM_FILE was not found.")
             end
+        elseif nh_levels == 2  # assume populations are already neutral and ionised stages
+            hydrogen1_density = hydrogen_density[:, :, :, 1]
+            proton_density = hydrogen_density[:, :, :, end]
         else
             hydrogen1_density = Array{FloatT}(undef, nz, ny, nx)
             proton_density = hydrogen_density[:, :, :, end]
