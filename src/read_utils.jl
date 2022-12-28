@@ -271,8 +271,9 @@ function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z; T=Float64)
             if type == "natural"
                 γ_rad = ustrip(_assign_unit(mechanism) |> u"s^-1")
             elseif type == "stark_linear"
-                stark_linear_const = zero(T)  # To be replaced by function
-                stark_linear_exp = convert(T, 2/3)
+                stark_linear_const, stark_linear_exp = _read_broadening_single(
+                    mechanism, mass, χup, χlo, χ∞, Z
+                )
             elseif type in electron_perturb
                 tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
                 append!(electron_const, tmp_c)
@@ -356,9 +357,10 @@ function _read_broadening_single(data::Dict, mass, χup, χlo, χ∞, Z)
         end
         tmp_const = coefficient * C_4
     elseif type == "stark_linear"
-        @warn "Stark linear not yet supported"
-        tmp_const = 0.0u"m^3 / s"
-        tmp_exp = 0.0
+        n_u = data["n_upper"]
+        n_l = data["n_lower"]
+        tmp_const = data["coefficient"] * γ_stark_linear(1.0u"m^-3", n_u, n_l) * 1.0u"m^3"
+        tmp_exp = 2/3
     else
         error("Unsupported type $type")
     end
