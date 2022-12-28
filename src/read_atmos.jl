@@ -67,6 +67,7 @@ Reads atmosphere in the input format of MULTI3D. Returns a dictionary.
 function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
     # Get parameters and height scale
     u_l = ustrip(1f0u"cm" |> u"m")
+    u_v = ustrip(1f0u"km" |> u"m")
     fobj = FortranFile(par_file, "r")
     _ = read(fobj, Int32)
     nx = read(fobj, Int32)
@@ -82,7 +83,7 @@ function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f
     block_size = nx * ny * nz * sizeof(FloatT)
     ne = Mmap.mmap(fobj, Array{FloatT, 3}, shape) ./ u_l^3
     temperature = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size)
-    vz = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 4) .* u_l
+    vz = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 4) .* u_v
     nH = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 5)  # reads rho
     nH = nH ./ (grph * u_l^3)
     close(fobj)
