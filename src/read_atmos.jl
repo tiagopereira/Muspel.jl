@@ -62,7 +62,8 @@ end
 
 """
 Reads atmosphere in the input format of MULTI3D.
-This version does not permute dims.
+This version does not permute dims. This is not currently working,
+as it is not possible to reassign the hydrogen populations.
 """
 function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
     # Get parameters and height scale
@@ -152,6 +153,52 @@ function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.
         Float64.(nH),
         Float64.(nH),
     )
+end
+
+
+"""
+Reads atmosphere in the input format of MULTI3D, at the same time as the
+hydrogen populations. Only works for a H NLTE run.
+This version does not permute dims.
+"""
+function read_atmos_hpops_multi3d(
+        par_file, atmos_file, hpops_file;
+        nlevels=6, FloatT=Float32, grph=2.380491f-24
+)
+    # Get parameters and height scale
+    u_l = ustrip(1f0u"cm" |> u"m")
+    u_v = ustrip(1f0u"km" |> u"m")
+    fobj = FortranFile(par_file, "r")
+    _ = read(fobj, Int32)
+    nx = Int64(read(fobj, Int32))
+    ny = Int64(read(fobj, Int32))
+    nz = Int64(read(fobj, Int32))
+    x = FloatT.(read(fobj, (Float64, nx))) * u_l
+    y = FloatT.(read(fobj, (Float64, ny))) * u_l
+    z = FloatT.(read(fobj, (Float64, nz))) * u_l
+    close(fobj)
+    # Get hydrogen populations
+    h_pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
+    read!(hpops_file, h_pops)
+    h_pops ./= u_l^3
+    h1_pops = sum(h_pops[:, :, :, 1:5], dims=4)[:, :, :, 1]
+    # Get atmosphere
+    fobj = open(atmos_file, "r")
+    shape = (nx, ny, nz)
+    block_size = nx * ny * nz * sizeof(FloatT)
+    temperature = Array{FloatT}(undef, nx, ny, nz)
+    ne = similar(temperature)
+    vz = similar(temperature)
+    read!(fobj, ne)
+    read!(fobj, temperature)
+    # skip vx, vy
+    seek(fobj, block_size * 4)
+    read!(fobj, vz)
+    close(fobj)
+    ne ./= u_l^3
+    vz .*= u_v
+    atm = AtmosphereM3D(nx, ny, nz, z, temperature, vz, ne, h1_pops, h_pops[:, :, :, end])
+    return atm, h_pops
 end
 
 
