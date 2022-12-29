@@ -60,9 +60,9 @@ function read_pops_rh(aux_file, species)::Array{Float32, 4}
 end
 
 
-
 """
-Reads atmosphere in the input format of MULTI3D. Returns a dictionary.
+Reads atmosphere in the input format of MULTI3D.
+This version does not permute dims.
 """
 function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
     # Get parameters and height scale
@@ -81,25 +81,80 @@ function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f
     fobj = open(atmos_file, "r")
     shape = (nx, ny, nz)
     block_size = nx * ny * nz * sizeof(FloatT)
-    ne = Mmap.mmap(fobj, Array{FloatT, 3}, shape) ./ u_l^3
-    temperature = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size)
-    vz = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 4) .* u_v
-    nH = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 5)  # reads rho
-    nH = nH ./ (grph * u_l^3)
+    temperature = Array{FloatT}(undef, nx, ny, nz)
+    ne = similar(temperature)
+    vz = similar(temperature)
+    nH = similar(temperature)
+    read!(fobj, ne)
+    read!(fobj, temperature)
+    # skip vx, vy
+    seek(fobj, block_size * 4)
+    read!(fobj, vz)
+    read!(fobj, nH)  # rho
     close(fobj)
-    return Atmosphere(
-        x,
-        y,
+    ne ./= u_l^3
+    vz .*= u_v
+    nH ./= grph * u_l^3
+    return AtmosphereM3D(
+        Int64(nx),
+        Int64(ny),
+        Int64(nz),
         z,
-        permutedims(temperature, (3, 2, 1)),
-        permutedims(vz, (3, 2, 1)),
-        permutedims(ne, (3, 2, 1)),
-        permutedims(reshape(nH, (1, nx, ny, nz)), (4, 3, 2, 1)),
+        temperature,
+        vz,
+        ne,
+        nH,
+        nH,
     )
 end
 
 
 # For testing purposes
+function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
+    # Get parameters and height scale
+    u_l = ustrip(1f0u"cm" |> u"m")
+    u_v = ustrip(1f0u"km" |> u"m")
+    fobj = FortranFile(par_file, "r")
+    _ = read(fobj, Int32)
+    nx = read(fobj, Int32)
+    ny = read(fobj, Int32)
+    nz = read(fobj, Int32)
+    x = read(fobj, (Float64, nx)) * u_l
+    y = read(fobj, (Float64, ny)) * u_l
+    z = read(fobj, (Float64, nz)) * u_l
+    close(fobj)
+    # Get atmosphere
+    fobj = open(atmos_file, "r")
+    shape = (nx, ny, nz)
+    block_size = nx * ny * nz * sizeof(FloatT)
+    temperature = Array{FloatT}(undef, nx, ny, nz)
+    ne = similar(temperature)
+    vz = similar(temperature)
+    nH = similar(temperature)
+    read!(fobj, ne)
+    read!(fobj, temperature)
+    # skip vx, vy
+    seek(fobj, block_size * 4)
+    read!(fobj, vz)
+    read!(fobj, nH)  # rho
+    close(fobj)
+    ne ./= u_l^3
+    vz .*= u_v
+    nH ./= grph * u_l^3
+    return AtmosphereM3D(
+        Int64(nx),
+        Int64(ny),
+        Int64(nz),
+        Float64.(z),
+        Float64.(temperature),
+        Float64.(vz),
+        Float64.(ne),
+        Float64.(nH),
+        Float64.(nH),
+    )
+end
+
+
 function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
     # Get parameters and height scale
     u_l = ustrip(1f0u"cm" |> u"m")
@@ -134,23 +189,23 @@ function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.
     )
 end
 
-
 """
-Reads NLTE populations from MULTI3D output
+Reads NLTE populations from MULTI3D output. Does NOT permute dims.
 """
 function read_pops_multi3d(pop_file, nx, ny, nz, nlevels; FloatT=Float32)::Array{FloatT, 4}
     u_l = ustrip(1f0u"cm" |> u"m")
-    fobj = open(pop_file, "r")
-    pops = Mmap.mmap(fobj, Array{FloatT, 4}, (nx, ny, nz, nlevels)) ./ u_l^3   # NLTE pops
-    close(fobj)
-    return permutedims(pops, (3, 2, 1, 4))
+    pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
+    read!(pop_file, pops)
+    pops ./= u_l^3
+    return pops
 end
+
 
 # For testing purposes
 function read_pops_multi3d_double(pop_file, nx, ny, nz, nlevels; FloatT=Float32)::Array{Float64, 4}
     u_l = ustrip(1f0u"cm" |> u"m")
-    fobj = open(pop_file, "r")
-    pops = Mmap.mmap(fobj, Array{FloatT, 4}, (nx, ny, nz, nlevels)) ./ u_l^3   # NLTE pops
-    close(fobj)
-    return Float64.(permutedims(pops, (3, 2, 1, 4)))
+    pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
+    read!(pop_file, pops)
+    pops ./= u_l^3
+    return Float64.(pops)
 end

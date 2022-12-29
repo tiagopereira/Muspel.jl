@@ -310,7 +310,7 @@ julia> atmos = atmos = read_atmos_rh(MY_ATMOS);
 julia> itp = get_σ_itp(atmos, 500.0, atom_files)
 ```
 """
-function get_σ_itp(atmos::Atmosphere, λ::Real, atom_files::Vector{String}; npts=100)
+function get_σ_itp(atmos::AbstractAtmos, λ::Real, atom_files::Vector{String}; npts=100)
     bckgr_atoms = Vector{AtomicModel}(undef, length(atom_files))
     for (index, file) in enumerate(atom_files)
         if isfile(file)

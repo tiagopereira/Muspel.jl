@@ -74,6 +74,20 @@ struct Atmosphere{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
 end
 
 
+# Basic Multi3D atmos using native shape. Does not calculate Saha-Boltzmann.
+struct AtmosphereM3D{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
+    nx::Int64
+    ny::Int64
+    nz::Int64
+    z::Array{FloatT, 1}
+    temperature::Array{FloatT, 3}
+    velocity_z::Array{FloatT, 3}
+    electron_density::Array{FloatT, 3}
+    hydrogen1_density::Array{FloatT, 3}  # neutral hydrogen across all levels
+    proton_density::Array{FloatT, 3}
+end
+
+
 struct Atmosphere1D{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
     nz::Int64
     z::Array{FloatT, 1}
@@ -93,6 +107,17 @@ Base.getindex(a::Atmosphere, i, j) = Atmosphere1D(
     a.electron_density[:,i, j],
     a.hydrogen1_density[:,i, j],
     a.proton_density[:, i, j],
+)
+
+
+Base.getindex(a::AtmosphereM3D, i, j) = Atmosphere1D(
+    length(a.z),
+    a.z,
+    a.temperature[i, j, :],
+    a.velocity_z[i, j, :],
+    a.electron_density[i, j, :],
+    a.hydrogen1_density[i, j, :],
+    a.proton_density[i, j, :],
 )
 
 
