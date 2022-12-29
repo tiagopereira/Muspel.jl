@@ -155,40 +155,6 @@ function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.
 end
 
 
-function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
-    # Get parameters and height scale
-    u_l = ustrip(1f0u"cm" |> u"m")
-    u_v = ustrip(1f0u"km" |> u"m")
-    fobj = FortranFile(par_file, "r")
-    _ = read(fobj, Int32)
-    nx = read(fobj, Int32)
-    ny = read(fobj, Int32)
-    nz = read(fobj, Int32)
-    x = FloatT.(read(fobj, (Float64, nx))) * u_l
-    y = FloatT.(read(fobj, (Float64, ny))) * u_l
-    z = FloatT.(read(fobj, (Float64, nz))) * u_l
-    close(fobj)
-    # Get atmosphere
-    fobj = open(atmos_file, "r")
-    shape = (nx, ny, nz)
-    block_size = nx * ny * nz * sizeof(FloatT)
-    ne = Mmap.mmap(fobj, Array{FloatT, 3}, shape) ./ u_l^3
-    temperature = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size)
-    vz = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 4) .* u_v
-    nH = Mmap.mmap(fobj, Array{FloatT, 3}, shape, block_size * 5)  # reads rho
-    nH = nH ./ (grph * u_l^3)
-    close(fobj)
-    return Atmosphere(
-        Float64.(x),
-        Float64.(y),
-        Float64.(z),
-        Float64.(permutedims(temperature, (3, 2, 1))),
-        Float64.(permutedims(vz, (3, 2, 1))),
-        Float64.(permutedims(ne, (3, 2, 1))),
-        Float64.(permutedims(reshape(nH, (1, nx, ny, nz)), (4, 3, 2, 1))),
-    )
-end
-
 """
 Reads NLTE populations from MULTI3D output. Does NOT permute dims.
 """
