@@ -147,7 +147,7 @@ end
 
 
 """
-    h_saha(temp::T, electron_density::T)::T where {T <: Real}
+    h_ionfrac_saha(temp::T, electron_density::T)::T where {T <: Real}
 
 Calculate ionisation fraction of hydrogen using Saha.
 """

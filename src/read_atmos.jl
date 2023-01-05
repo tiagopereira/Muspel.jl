@@ -156,8 +156,10 @@ function read_atmos_hpops_multi3d(
     seek(fobj, block_size * 4)
     read!(fobj, vz)
     close(fobj)
-    ne ./= u_l^3
-    vz .*= u_v
+    Threads.@threads for i in eachindex(ne)
+        ne[i] /= u_l^3
+        vz[i] *= u_v
+    end
     atm = AtmosphereM3D(nx, ny, nz, z, temperature, vz, ne, h1_pops, h_pops[:, :, :, end])
     return atm, h_pops
 end
@@ -170,7 +172,9 @@ function read_pops_multi3d(pop_file, nx, ny, nz, nlevels; FloatT=Float32)::Array
     u_l = ustrip(1f0u"cm" |> u"m")
     pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
     read!(pop_file, pops)
-    pops ./= u_l^3
+    Threads.@threads for i in eachindex(pops)
+        pops[i] /= u_l^3
+    end
     return pops
 end
 
