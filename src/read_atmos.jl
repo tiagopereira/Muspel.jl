@@ -83,19 +83,26 @@ function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f
     shape = (nx, ny, nz)
     block_size = nx * ny * nz * sizeof(FloatT)
     temperature = Array{FloatT}(undef, nx, ny, nz)
-    ne = similar(temperature)
+    electron_density = similar(temperature)
     vz = similar(temperature)
     nH = similar(temperature)
-    read!(fobj, ne)
+    proton_density = similar(temperature)
+    read!(fobj, electron_density)
     read!(fobj, temperature)
     # skip vx, vy
     seek(fobj, block_size * 4)
     read!(fobj, vz)
     read!(fobj, nH)  # rho
     close(fobj)
-    ne ./= u_l^3
-    vz .*= u_v
-    nH ./= grph * u_l^3
+    rho_to_nH = 1 / (grph * u_l^3)
+    # convert units, get hydrogen ionisation
+    Threads.@threads for i in eachindex(temperature)
+        ne[i] /= u_l^3
+        vz[i] *= u_v
+        ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
+        proton_density[i] = nH[i] * rho_to_nH * ionfrac
+        nH[i] *= rho_to_nH * (1 - ionfrac)
+    end
     return AtmosphereM3D(
         Int64(nx),
         Int64(ny),
@@ -103,55 +110,9 @@ function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f
         z,
         temperature,
         vz,
-        ne,
+        electron_density,
         nH,
-        nH,
-    )
-end
-
-
-# For testing purposes
-function read_atmos_multi3d_double(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
-    # Get parameters and height scale
-    u_l = ustrip(1f0u"cm" |> u"m")
-    u_v = ustrip(1f0u"km" |> u"m")
-    fobj = FortranFile(par_file, "r")
-    _ = read(fobj, Int32)
-    nx = read(fobj, Int32)
-    ny = read(fobj, Int32)
-    nz = read(fobj, Int32)
-    x = read(fobj, (Float64, nx)) * u_l
-    y = read(fobj, (Float64, ny)) * u_l
-    z = read(fobj, (Float64, nz)) * u_l
-    close(fobj)
-    # Get atmosphere
-    fobj = open(atmos_file, "r")
-    shape = (nx, ny, nz)
-    block_size = nx * ny * nz * sizeof(FloatT)
-    temperature = Array{FloatT}(undef, nx, ny, nz)
-    ne = similar(temperature)
-    vz = similar(temperature)
-    nH = similar(temperature)
-    read!(fobj, ne)
-    read!(fobj, temperature)
-    # skip vx, vy
-    seek(fobj, block_size * 4)
-    read!(fobj, vz)
-    read!(fobj, nH)  # rho
-    close(fobj)
-    ne ./= u_l^3
-    vz .*= u_v
-    nH ./= grph * u_l^3
-    return AtmosphereM3D(
-        Int64(nx),
-        Int64(ny),
-        Int64(nz),
-        Float64.(z),
-        Float64.(temperature),
-        Float64.(vz),
-        Float64.(ne),
-        Float64.(nH),
-        Float64.(nH),
+        proton_density,
     )
 end
 
@@ -181,7 +142,7 @@ function read_atmos_hpops_multi3d(
     h_pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
     read!(hpops_file, h_pops)
     h_pops ./= u_l^3
-    h1_pops = sum(h_pops[:, :, :, 1:5], dims=4)[:, :, :, 1]
+    h1_pops = sum(h_pops[:, :, :, 1:end-1], dims=4)[:, :, :, 1]
     # Get atmosphere
     fobj = open(atmos_file, "r")
     shape = (nx, ny, nz)

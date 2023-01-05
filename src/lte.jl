@@ -4,6 +4,7 @@ Calculate quantities in local thermodynamical equilibrium (LTE).
 
 const saha_const_u = ustrip(h^2 / (2 * π * m_e * k_B))
 const k_B_u = ustrip(k_B)
+const Hχ∞ = 2.1787094174620437e-18  # in J, from NIST retrieved Jan 2023
 
 
 """
@@ -142,4 +143,15 @@ function saha_boltzmann!(
         populations
     )
     return nothing
+end
+
+
+"""
+    h_saha(temp::T, electron_density::T)::T where {T <: Real}
+
+Calculate ionisation fraction of hydrogen using Saha.
+"""
+function h_ionfrac_saha(temp::T, electron_density::T)::T where {T <: Real}
+    saha = (temp / saha_const_u) ^ (3/2) / electron_density * exp(-Hχ∞ / (k_B_u * temp))
+    return 1 - (1 / (1 + saha))
 end
