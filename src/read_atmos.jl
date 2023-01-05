@@ -97,7 +97,7 @@ function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f
     rho_to_nH = 1 / (grph * u_l^3)
     # convert units, get hydrogen ionisation
     Threads.@threads for i in eachindex(temperature)
-        ne[i] /= u_l^3
+        electron_density[i] /= u_l^3
         vz[i] *= u_v
         ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
         proton_density[i] = nH[i] * rho_to_nH * ionfrac
