@@ -2,6 +2,7 @@ module Muspel
 
 export Atmosphere, Atmosphere1D
 export AtomicLine, AtomicContinuum, AtomicModel
+export RTBuffer
 export AbstractBroadening, LineBroadening
 export read_atom
 export saha_boltzmann, saha_boltzmann!
@@ -12,8 +13,7 @@ export read_atmos_rh, read_pops_rh
 export read_atmos_hpops_multi3d, read_atmos_multi3d, read_pops_multi3d
 export read_atmos_multi3d_double, read_pops_multi3d_double
 export doppler_width, damping, calc_broadening, create_voigt_itp
-export blackbody_λ
-export RTBuffer
+export blackbody_λ, incline_data!
 export calc_line_1D!
 
 using AtomicData
