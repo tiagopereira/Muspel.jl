@@ -12,32 +12,43 @@ Reads RH atmosphere. Returns always in single precision.
 """
 function read_atmos_rh(atmos_file; index=1)::Atmosphere{Float32}
     temperature = h5read(atmos_file, "temperature", (:, :, :, index))
-    ne = h5read(atmos_file, "electron_density", (:, :, :, index))
-    nH = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
+    electron_density = h5read(atmos_file, "electron_density", (:, :, :, index))
+    hydrogen_density = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
     vz = h5read(atmos_file, "velocity_z", (:, :, :, index))
     z = h5read(atmos_file, "z", (:, index))
     x = h5read(atmos_file, "x")
     y = h5read(atmos_file, "y")
-    return Atmosphere(Float32.(x), Float32.(y), z, temperature, vz, Float32.(ne), nH)
-end
 
-# For testing purposes
-function read_atmos_rh_double(atmos_file; index=1)::Atmosphere{Float64}
-    temperature = h5read(atmos_file, "temperature", (:, :, :, index))
-    ne = h5read(atmos_file, "electron_density", (:, :, :, index))
-    nH = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
-    vz = h5read(atmos_file, "velocity_z", (:, :, :, index))
-    z = h5read(atmos_file, "z", (:, index))
-    x = h5read(atmos_file, "x")
-    y = h5read(atmos_file, "y")
+    nz, ny, nx, nhydr = size(hydrogen_density)
+    if nhydr == 1
+        hydrogen_density1 = hydrogen_density[:, :, :, 1]
+        Threads.@threads for i in eachindex(temperature)
+            ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
+            proton_density[i] = hydrogen_density1[i] * ionfrac
+            hydrogen1_density[i] *= (1 - ionfrac)
+        end
+    elseif nhydr == 2
+        hydrogen1_density = hydrogen_density[:, :, :, 1]
+        proton_density = hydrogen_density[:, :, :, 2]
+    elseif nhydr > 2
+        proton_density = hydrogen_density[:, :, :, end]
+        hydrogen1_density = dropdims(
+            sum(view(hydrogen_density, :, :, :, 1:nhydr-1), dims=4);
+            dims=4
+        )
+    end
     return Atmosphere(
-        Float64.(x),
-        Float64.(y),
-        Float64.(z),
-        Float64.(temperature),
-        Float64.(vz),
-        Float64.(ne),
-        Float64.(nH),
+        nx,
+        ny,
+        nz,
+        Float32.(x),
+        Float32.(y),
+        z,
+        temperature,
+        vz,
+        Float32.(electron_density),
+        hydrogen1_density,
+        proton_density
     )
 end
 
@@ -62,8 +73,7 @@ end
 
 """
 Reads atmosphere in the input format of MULTI3D.
-This version does not permute dims. This is not currently working,
-as it is not possible to reassign the hydrogen populations.
+This version does not permute dims.
 """
 function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
     # Get parameters and height scale
