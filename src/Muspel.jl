@@ -13,7 +13,7 @@ export read_atmos_rh, read_pops_rh
 export read_atmos_hpops_multi3d, read_atmos_multi3d, read_pops_multi3d
 export read_atmos_multi3d_double, read_pops_multi3d_double
 export doppler_width, damping, calc_broadening, create_voigt_itp
-export blackbody_λ, incline_data!
+export blackbody_λ, incline_data!, incline_data_inv!
 export calc_line_1D!
 
 using AtomicData

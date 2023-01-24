@@ -13,7 +13,7 @@ end
 
 
 """
-    incline_data!(
+    incline_data_inv!(
             data::AbstractArray{<: Real, 3},
             z::AbstractVector,
             dx::Real,
@@ -25,8 +25,13 @@ end
 Transforms a 3D array into an inclined coordinate system, according to
 a polar angle given by μ = cos(θ), and an azimuthal angle ϕ.
 Uses cubic spline interpolation, and updates `data` in-place.
+Based on trnslt.f90 from Åke Nordlund.
+
+This version only works if height is the last dimension in `data`.
+This is 3-5x faster than `incline_data!` because the loop order is optimised
+for this memory configuration.
 """
-function incline_data!(
+function incline_data_inv!(
         data::AbstractArray{<: Real, 3},
         z::AbstractVector,
         dx::Real,
@@ -57,7 +62,6 @@ function incline_data!(
             end
         end
     end
-
     if abs(∂y∂z) > ε   # ϕ shift in the y dimension
         Threads.@threads for n in 1:nz
             shift_y = ∂y∂z * z[n] / (ny*dy)
@@ -71,7 +75,36 @@ function incline_data!(
             end
         end
     end
- end
+end
+
+
+"""
+    incline_data!(
+            data::AbstractArray{<: Real, 3},
+            z::AbstractVector,
+            dx::Real,
+            dy::Real,
+            μ::Real,
+            ϕ::Real
+    )
+
+Transforms a 3D array into an inclined coordinate system, according to
+a polar angle given by μ = cos(θ), and an azimuthal angle ϕ.
+Uses cubic spline interpolation, and updates `data` in-place.
+
+This version only works if height is the first dimension in `data`.
+"""
+function incline_data!(
+    data::AbstractArray{<: Real, 3},
+    z::AbstractVector,
+    dx::Real,
+    dy::Real,
+    μ::Real,
+    ϕ::Real
+)
+    data_inv = PermutedDimsArray(data, (3,2,1))
+    incline_data_inv!(data_inv, z, dx, dy, μ, ϕ)
+end
 
 
 """
