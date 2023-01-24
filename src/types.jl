@@ -2,67 +2,85 @@
 Collection of types.
 """
 
-abstract type AbstractAtmos{T <: AbstractFloat} end
+abstract type AbstractAtmos{T <: Real} end
 
-struct Atmosphere{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
+abstract type AbstractAtmos1D{N, T <: Real} <: AbstractAtmos{T} end
+
+abstract type AbstractAtmos3D{T <: Real} <: AbstractAtmos{T} end
+
+
+"""
+Type for 1D atmospheres. Can contain both 1D only, or 1.5D atmospheres (multiple
+columns of 1D atmospheres).
+"""
+struct Atmosphere1D{
+    N,
+    T <: Real,
+    A <: AbstractArray{T, N},
+    V <:AbstractVector{T},
+} <: AbstractAtmos1D{N, T}
     nx::Int64
     ny::Int64
     nz::Int64
-    x::Array{FloatT, 1}
-    y::Array{FloatT, 1}
-    z::Array{FloatT, 1}
-    temperature::Array{FloatT, 3}
-    velocity_z::Array{FloatT, 3}
-    electron_density::Array{FloatT, 3}
-    hydrogen1_density::Array{FloatT, 3}  # neutral hydrogen across all levels
-    proton_density::Array{FloatT, 3}
+    z::V
+    temperature::A
+    velocity_z::A
+    electron_density::A
+    hydrogen1_density::A  # neutral hydrogen across all levels
+    proton_density::A
 end
 
 
-# Basic Multi3D atmos using native shape. Does not calculate Saha-Boltzmann.
-struct AtmosphereM3D{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
+struct Atmosphere3D{T <: Real, A <: AbstractArray{T, 3}, V <:AbstractVector{T}} <: AbstractAtmos3D{T}
     nx::Int64
     ny::Int64
     nz::Int64
-    z::Array{FloatT, 1}
-    temperature::Array{FloatT, 3}
-    velocity_z::Array{FloatT, 3}
-    electron_density::Array{FloatT, 3}
-    hydrogen1_density::Array{FloatT, 3}  # neutral hydrogen across all levels
-    proton_density::Array{FloatT, 3}
+    x::V
+    y::V
+    z::V
+    temperature::A
+    velocity_x::A
+    velocity_y::A
+    velocity_z::A
+    electron_density::A
+    hydrogen1_density::A  # neutral hydrogen across all levels
+    proton_density::A
 end
 
-
-struct Atmosphere1D{FloatT <: AbstractFloat} <: AbstractAtmos{FloatT}
-    nz::Int64
-    z::Array{FloatT, 1}
-    temperature::Array{FloatT, 1}
-    velocity_z::Array{FloatT, 1}
-    electron_density::Array{FloatT, 1}
-    hydrogen1_density::Array{FloatT, 1}
-    proton_density::Array{FloatT, 1}
-end
-
-
-Base.getindex(a::Atmosphere, i, j) = Atmosphere1D(
+Base.getindex(a::AbstractAtmos1D{3}, i, j) = Atmosphere1D(
+    1,
+    1,
     a.nz,
     a.z,
-    a.temperature[:,i, j],
-    a.velocity_z[:,i, j],
-    a.electron_density[:,i, j],
-    a.hydrogen1_density[:,i, j],
+    a.temperature[:, i, j],
+    a.velocity_z[:, i, j],
+    a.electron_density[:, i, j],
+    a.hydrogen1_density[:, i, j],
     a.proton_density[:, i, j],
 )
 
-
-Base.getindex(a::AtmosphereM3D, i, j) = Atmosphere1D(
-    length(a.z),
+Base.getindex(a::AbstractAtmos1D{2}, i) = Atmosphere1D(
+    1,
+    1,
+    a.nz,
     a.z,
-    a.temperature[i, j, :],
-    a.velocity_z[i, j, :],
-    a.electron_density[i, j, :],
-    a.hydrogen1_density[i, j, :],
-    a.proton_density[i, j, :],
+    a.temperature[:, i],
+    a.velocity_z[:, i],
+    a.electron_density[:, i],
+    a.hydrogen1_density[:, i],
+    a.proton_density[:, i],
+)
+
+Base.getindex(a::AbstractAtmos3D, i, j) = Atmosphere1D(
+    1,
+    1,
+    a.nz,
+    a.z,
+    a.temperature[:, i, j],
+    a.velocity_z[:, i, j],
+    a.electron_density[:, i, j],
+    a.hydrogen1_density[: ,i, j],
+    a.proton_density[:, i, j],
 )
 
 
