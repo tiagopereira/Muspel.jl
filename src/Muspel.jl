@@ -12,8 +12,9 @@ export piecewise_1D_nn, piecewise_1D_linear, piecewise_1D_linear2!, feautrier
 export read_atmos_rh, read_pops_rh
 export read_atmos_hpops_multi3d, read_atmos_multi3d, read_pops_multi3d
 export doppler_width, damping, calc_broadening, create_voigt_itp
-export blackbody_λ, incline_data!, incline_data_inv!
+export blackbody_λ
 export calc_line_1D!
+export incline_atmos, incline_data!, incline_data_inv!, project_vector!
 
 using AtomicData
 using Interpolations
@@ -36,5 +37,6 @@ include("formal_solvers.jl")
 include("read_atmos.jl")
 include("utils.jl")
 include("intensity.jl")
+include("incline.jl")
 
 end
