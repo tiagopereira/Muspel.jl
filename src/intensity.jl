@@ -59,7 +59,7 @@ function calc_line_1D!(
             buf.source_function[iz] = j_tmp / α_tmp
             buf.α_total[iz] = α_tmp
         end
-        piecewise_1D_linear2!(atm.z, buf.α_total, buf.source_function, buf.int_tmp)
+        piecewise_1D_linear!(atm.z, buf.α_total, buf.source_function, buf.int_tmp)
         buf.intensity[i] = buf.int_tmp[1]
     end
     return nothing

@@ -66,6 +66,7 @@ end
         initial_condition=:source
     ) where T <: AbstractFloat
 
+DEPRECATED, use piecewise_1D_linear!
 Compute piecewise integration of the radiative transfer equation,
 assuming linear integration of the source function, for a given
 height `z`, extinction `α` and `source_function`. The optional
@@ -112,9 +113,27 @@ end
 
 
 """
-Similar to piecewise_1D_linear but does not allocate.
+    piecewise_1D_linear!(
+        z::AbstractVector{T},
+        α::AbstractVector{T},
+        source_function::AbstractVector{T},
+        intensity::AbstractVector{T};
+        to_end::Bool=false,
+        initial_condition=:source
+    ) where T <: AbstractFloat
+
+Compute piecewise integration of the radiative transfer equation,
+assuming linear integration of the source function, for a given
+height `z`, extinction `α` and `source_function` and `intensity`
+(existing array where the output will be saved into). The optional
+keyword argument `to_end` defines the direction of the integration:
+if `false` (default) will start to integrate intensity from the last
+element to the first, and if `true` will integrate from the first
+element to the last. `initial_condition` can take two values: `:zero` for
+no radiation, or `:source` (default) to take the source function at the
+starting point.
 """
-function piecewise_1D_linear2!(
+function piecewise_1D_linear!(
     z::AbstractVector{T},
     α::AbstractVector{T},
     source_function::AbstractVector{T},
