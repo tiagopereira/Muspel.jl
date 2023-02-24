@@ -48,4 +48,9 @@
         6.328194095197636e-10,
         4.246256924027464e-5
     ])
+    @test Muspel.h_ionfrac_saha(0f0, 1f10) == 0
+    @test Muspel.h_ionfrac_saha(9500f0, 1f20) ≈ 0.57733727
+    @test Muspel.h_ionfrac_saha(9500f0, 1f22) ≈ 0.013475458
+    @test isa(Muspel.h_ionfrac_saha(9500f0, 1f22), Float32)
+    @test isa(Muspel.h_ionfrac_saha(9500., 1e22), Float64)
 end

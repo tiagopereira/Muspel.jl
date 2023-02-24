@@ -17,6 +17,7 @@ Assumes the following:
 3. The first index in the height direction is fixed in the polar rotation
 4. A right handed system, so that:
 
+```
       z ↑.            - θ is the clockwise polar rotation from the z axis
         |  .          - φ is the clockwise azimuthal rotation from the x axis
         |    .
@@ -32,7 +33,7 @@ Assumes the following:
      /         . . /
     /- - - - - - .
   x
-
+```
 """
 function incline_atmos(atmos_in::AbstractAtmos3D, μ::Real, φ::Real)
     atmos = deepcopy(atmos_in)
@@ -72,6 +73,7 @@ Assumes the following:
 3. The rotation of the vector is the same as the rotation from the
    axes (x, y, z) into a new system (x', y', z') given by the rotation matrix:
 
+```
                Polar          Azimuthal
    ⎡x'⎤ = ⎡cosθ  0  -sinθ⎤⎡ cosφ  sinφ  0⎤⎡x⎤
    ⎜y'⎥   ⎜  0   1    0  ⎥⎜-sinφ  cosφ  0⎥⎜y⎥
@@ -80,6 +82,7 @@ Assumes the following:
    ⌈x'⎤ = ⎡cosθcosφ  cosθsinφ  -sinφ⎤⎡x⎤
    |y'⎥   ⎜ -sinφ      cosφ       0 ⎥⎜y⎥
    ⌊z'⎦   ⎣sinθcosφ  sinθsinφ   cosθ⎦⎣z⎦
+```
 """
 function project_vector!(vx::A, vy::A, vz::A, μ::Real, φ::Real) where A <: AbstractArray{<:Real}
     cosθ = μ

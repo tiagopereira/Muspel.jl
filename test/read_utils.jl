@@ -153,8 +153,8 @@ import PhysicalConstants.CODATA2018: h, c_0
         dline = data["radiative_bound_bound"][1]
         line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 5
-        @test all(line.λ .≈ [397.28917142978565, 397.337592128717,
-                        397.3860246364557, 397.43463712667443, 403.7840001532265])
+        @test all(line.λ .≈ [ 390.99997262033446, 397.1923654228526, 397.28917142978565,
+                              397.3860246364557, 403.7840001532265])
         @test line.PRD == false
         @test line.Voigt == true
         # Else unrecognized types:

@@ -31,7 +31,11 @@ struct Atmosphere1D{
 end
 
 
-struct Atmosphere3D{T <: Real, A <: AbstractArray{T, 3}, V <:AbstractVector{T}} <: AbstractAtmos3D{T}
+struct Atmosphere3D{
+    T <: Real,
+    A <: AbstractArray{T, 3},
+    V <:AbstractVector{T}
+} <: AbstractAtmos3D{T}
     nx::Int64
     ny::Int64
     nz::Int64
