@@ -123,7 +123,6 @@ struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
 end
 
 
-
 struct AtomicContinuum{Nλ, FloatT <: AbstractFloat, IntT <: Integer}
     up::IntT
     lo::IntT

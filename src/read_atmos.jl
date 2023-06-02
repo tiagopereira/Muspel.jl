@@ -5,6 +5,7 @@ Functions for reading model atmospheres from various formats.
 using HDF5
 using Mmap
 using FortranFiles
+using DelimitedFiles
 
 
 """
@@ -20,11 +21,12 @@ function read_atmos_rh(atmos_file; index=1)
     y = h5read(atmos_file, "y")
 
     nz, ny, nx, nhydr = size(hydrogen_density)
+    # must define proton_density
     if nhydr == 1
-        hydrogen_density1 = hydrogen_density[:, :, :, 1]
+        hydrogen1_density = hydrogen_density[:, :, :, 1]
         Threads.@threads for i in eachindex(temperature)
             ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
-            proton_density[i] = hydrogen_density1[i] * ionfrac
+            proton_density[i] = hydrogen1_density[i] * ionfrac
             hydrogen1_density[i] *= (1 - ionfrac)
         end
     elseif nhydr == 2
@@ -72,19 +74,14 @@ end
 """
 Reads atmosphere in the input format of MULTI3D.
 """
-function read_atmos_multi3d(par_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
+function read_atmos_multi3d(mesh_file, atmos_file; FloatT=Float32, grph=2.380491f-24)
     # Get parameters and height scale
     u_l = ustrip(1f0u"cm" |> u"m")
     u_v = ustrip(1f0u"km" |> u"m")
-    fobj = FortranFile(par_file, "r")
-    _ = read(fobj, Int32)
-    nx = read(fobj, Int32)
-    ny = read(fobj, Int32)
-    nz = read(fobj, Int32)
-    x = FloatT.(read(fobj, (Float64, nx))) * u_l
-    y = FloatT.(read(fobj, (Float64, ny))) * u_l
-    z = FloatT.(read(fobj, (Float64, nz))) * u_l
-    close(fobj)
+    nx, ny, nz, x, y, z = read_mesh(mesh_file; FloatT=FloatT)
+    x .*= u_l
+    y .*= u_l
+    z .*= u_l
     # Get atmosphere
     fobj = open(atmos_file, "r")
     shape = (nx, ny, nz)
@@ -147,21 +144,16 @@ Reads atmosphere in the input format of MULTI3D, at the same time as the
 hydrogen populations. Only works for a H NLTE run.
 """
 function read_atmos_hpops_multi3d(
-        par_file, atmos_file, hpops_file;
+        mesh_file, atmos_file, hpops_file;
         nlevels=6, FloatT=Float32, grph=2.380491f-24
 )
     # Get parameters and height scale
     u_l = ustrip(1f0u"cm" |> u"m")
     u_v = ustrip(1f0u"km" |> u"m")
-    fobj = FortranFile(par_file, "r")
-    _ = read(fobj, Int32)
-    nx = Int64(read(fobj, Int32))
-    ny = Int64(read(fobj, Int32))
-    nz = Int64(read(fobj, Int32))
-    x = FloatT.(read(fobj, (Float64, nx))) * u_l
-    y = FloatT.(read(fobj, (Float64, ny))) * u_l
-    z = FloatT.(read(fobj, (Float64, nz))) * u_l
-    close(fobj)
+    nx, ny, nz, x, y, z = read_mesh(mesh_file; FloatT=FloatT)
+    x .*= u_l
+    y .*= u_l
+    z .*= u_l
     # Get hydrogen populations
     h_pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
     read!(hpops_file, h_pops)
@@ -234,4 +226,26 @@ function read_pops_multi3d(pop_file, nx, ny, nz, nlevels; FloatT=Float32)::Array
         pops[i] /= u_l^3
     end
     return PermutedDimsArray(pops, (3, 2, 1, 4))
+end
+
+
+"""
+Reads mesh file from Bifrost or MULTI3D.
+"""
+function read_mesh(mesh_file; FloatT=Float32)
+    # Read all values into a single 1D array
+    tmp = [a for a in vec(permutedims(readdlm(mesh_file))) if a != ""]
+    inc = 1
+    nx = Int32(tmp[inc])
+    inc += 1
+    x = FloatT.(tmp[inc:inc + nx - 1])
+    inc += nx
+    ny = Int32(tmp[inc])
+    inc += 1
+    y = FloatT.(tmp[inc:inc + ny - 1])
+    inc += ny
+    nz = Int32(tmp[inc])
+    inc += 1
+    z = FloatT.(tmp[inc:end])
+    return (nx, ny, nz, x, y, z)
 end

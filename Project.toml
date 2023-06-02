@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 AtomicData = "6b77412b-f4b7-4495-8b9c-778517285205"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 FortranFiles = "c58ffaec-ab22-586d-bfc5-781a99fd0b10"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -21,17 +22,18 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 [compat]
 AtomicData = "^0.1.2"
 FortranFiles = "^0.6"
+DelimitedFiles = "^1.6"
 HDF5 = "^0.16"
 Interpolations = "^0.14"
 PeriodicTable = "^1"
 PhysicalConstants = "^0.2.1"
 ProgressMeter = "^1.7.2"
+SpecialFunctions = "^2"
 StaticArrays = "^1.5.1"
 Transparency = "^0.2.0"
 Unitful = "^1"
 YAML = "^0.4.7"
 julia = "^1.6"
-SpecialFunctions = "^2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
