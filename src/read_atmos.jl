@@ -54,6 +54,38 @@ end
 
 
 """
+Reads RH atmosphere. Returns always in single precision.
+"""
+function read_atmos_hpops_rh(atmos_file, aux_file; index=1)
+    temperature = h5read(atmos_file, "temperature", (:, :, :, index))
+    electron_density = h5read(atmos_file, "electron_density", (:, :, :, index))
+    #hydrogen_density = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
+    vz = h5read(atmos_file, "velocity_z", (:, :, :, index))
+    z = h5read(atmos_file, "z", (:, index))
+    x = h5read(atmos_file, "x")
+    y = h5read(atmos_file, "y")
+    hydrogen_density = read_pops_rh(aux_file, "H")
+    nz, ny, nx, nhydr = size(hydrogen_density)
+    proton_density = hydrogen_density[:, :, :, end]
+    hydrogen1_density = dropdims(
+        sum(view(hydrogen_density, :, :, :, 1:nhydr-1), dims=4);
+        dims=4
+    )
+    return Atmosphere1D(
+        nx,
+        ny,
+        nz,
+        z,
+        temperature,
+        vz,
+        Float32.(electron_density),
+        hydrogen1_density,
+        proton_density
+    ), hydrogen_density
+end
+
+
+"""
 Reads array with populations for a given species.
 """
 function read_pops_rh(aux_file, species)::Array{Float32, 4}
@@ -158,22 +190,23 @@ function read_atmos_hpops_multi3d(
     h_pops = Array{FloatT}(undef, nx, ny, nz, nlevels)
     read!(hpops_file, h_pops)
     Threads.@threads for i in eachindex(h_pops)
-        hpops[i] = hpops[i] / u_l^3
+        h_pops[i] = h_pops[i] / u_l^3
     end
     h1_pops = sum(h_pops[:, :, :, 1:end-1], dims=4)[:, :, :, 1]
     # Get atmosphere
     fobj = open(atmos_file, "r")
     shape = (nx, ny, nz)
+    block_size = nx * ny * nz * sizeof(FloatT)
     temperature = Array{FloatT}(undef, nx, ny, nz)
-    ne = similar(temperature)
+    electron_density = similar(temperature)
     vx = similar(temperature)
     vy = similar(temperature)
     vz = similar(temperature)
-    read!(fobj, ne)
+    read!(fobj, electron_density)
     read!(fobj, temperature)
     read!(fobj, vx)
     read!(fobj, vy)
-    seek(fobj, block_size * 4)
+    #seek(fobj, block_size * 4)
     read!(fobj, vz)
     close(fobj)
     # Transposed arrays
@@ -193,7 +226,7 @@ function read_atmos_hpops_multi3d(
             h1_pops_tr[i, j, k] = h1_pops[k, j, i]
             temperature_tr[i, j, k] = temperature[k, j, i]
             proton_density_tr[i, j, k] = h_pops[k, j, i, end]
-            electron_density_tr[i, j, k] = electron_density[k, j, i]
+            electron_density_tr[i, j, k] = electron_density[k, j, i] / u_l^3
         end
     end
     atm = Atmosphere3D(

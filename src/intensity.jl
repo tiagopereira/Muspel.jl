@@ -17,7 +17,7 @@ Calculate emerging disk-centre intensity for a 1D atmosphere.
 function calc_line_1D!(
     line::AtomicLine,
     buf::RTBuffer{T},
-    atm::Atmosphere1D{T},
+    atm::Atmosphere1D{1, T},
     n_up::AbstractVector{T},
     n_lo::AbstractVector{T},
     σ_itp::ExtinctionItpNLTE{<:Real},
