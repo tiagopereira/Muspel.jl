@@ -12,7 +12,7 @@ end
 
 
 """
-Damping constant for γ in s^-1, λ and ΔλD in nm.
+Damping constant for γ in rad / s, λ and ΔλD in nm.
 """
 function damping(γ::T, λ::Real, ΔλD::Real)::T where T <: Real
     c1 = 1 / ustrip((4 * π * c_0) |> u"nm / s")

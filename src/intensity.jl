@@ -12,7 +12,7 @@
         voigt_itp::Interpolations.AbstractInterpolation{<:Real, 2},
     )
 
-Calculate emerging disk-centre intensity for a 1D atmosphere.
+Calculate emerging disk-centre intensity for a given line in a 1D atmosphere.
 """
 function calc_line_1D!(
     line::AtomicLine,
@@ -28,14 +28,16 @@ function calc_line_1D!(
     # wavelength-independent part (continuum + broadening + Doppler width)
     for i in 1:atm.nz
         buf.α_c[i] = α_cont(
-            σ_itp, atm.temperature[i],
+            σ_itp,
+            atm.temperature[i],
             atm.electron_density[i],
             atm.hydrogen1_density[i],
             atm.proton_density[i]
         )
         buf.j_c[i] = buf.α_c[i] * blackbody_λ(line.λ0, atm.temperature[i])
         buf.γ[i] = calc_broadening(
-            line.γ, atm.temperature[i],
+            line.γ,
+            atm.temperature[i],
             atm.electron_density[i],
             atm.hydrogen1_density[i]
         )

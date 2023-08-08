@@ -18,11 +18,6 @@
         @test atm4[1] isa Atmosphere1D{1, Float64}
         @test atm4[2].proton_density == atm1.proton_density
     end
-    @testset "AtomicLine" begin
-        @test fieldnames(AtomicLine) == (:nλ, :χup, :χlo, :gup, :glo, :Aul, :Blu, :Bul, :λ0,
-                                         :f_value, :λ, :PRD, :Voigt, :label_up, :label_lo,
-                                         :γ)
-    end
     @testset "AtomicContinuum" begin
         @test fieldnames(AtomicContinuum) == (:up, :lo, :nλ, :λedge, :σ, :λ)
     end

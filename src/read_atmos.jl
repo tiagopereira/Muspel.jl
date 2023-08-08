@@ -24,6 +24,7 @@ function read_atmos_rh(atmos_file; index=1)
     # must define proton_density
     if nhydr == 1
         hydrogen1_density = hydrogen_density[:, :, :, 1]
+        proton_density = similar(hydrogen1_density)
         Threads.@threads for i in eachindex(temperature)
             ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
             proton_density[i] = hydrogen1_density[i] * ionfrac

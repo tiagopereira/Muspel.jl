@@ -11,10 +11,25 @@
         S = ones(20)
         @test piecewise_1D_linear(z, alpha, S) ≈ S
         @test piecewise_1D_nn(z, alpha, S) ≈ S
+        @test begin
+            result = similar(S)
+            piecewise_1D_linear!(z, alpha, S, result)
+            result ≈ S
+        end
         alpha = ones(20)
         @test piecewise_1D_linear(z, alpha, S) ≈ S
         @test piecewise_1D_linear(z, alpha, S;
                                   initial_condition=:zero)[[1, end]] ≈ [S[1], S[1]*0]
+        @test begin
+            result = similar(S)
+            piecewise_1D_linear!(z, alpha, S, result)
+            result ≈ S
+        end
+        @test begin
+            result = similar(S)
+            piecewise_1D_linear!(z, alpha, S, result; initial_condition=:zero)
+            result[[1, end]] ≈ [S[1], S[1]*0]
+        end
         @test piecewise_1D_nn(z, alpha, S) ≈ S
         @test piecewise_1D_nn(z, alpha, S;
                               initial_condition=:zero)[[1, end]] ≈ [S[1], S[1]*0]
@@ -25,7 +40,16 @@
                reverse(piecewise_1D_linear(z, alpha, S)))
         @test (piecewise_1D_nn(z, reverse(alpha), reverse(S); to_end=true) ≈
                reverse(piecewise_1D_nn(z, alpha, S)))
+        @test begin
+            result_i = similar(S)
+            piecewise_1D_linear!(z, reverse(alpha), reverse(S), result_i; to_end=true)
+            result = similar(S)
+            piecewise_1D_linear!(z, alpha, S, result)
+            result_i ≈ reverse(result)
+        end
         # Exceptions
+        result = similar(S)
+        @test_throws ErrorException piecewise_1D_linear!(z, alpha, S, result; initial_condition=:aaa)
         @test_throws ErrorException piecewise_1D_linear(z, alpha, S; initial_condition=:aaa)
         @test_throws ErrorException piecewise_1D_nn(z, alpha, S; initial_condition=:aaa)
     end
