@@ -119,7 +119,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
             error("Unrecognised wavelength type")
         end
     end
-    prof = lowercase(line["type_profile"])
+    prof = lowercase(line["profile_type"])
     prd = false
     if prof in ["voigt", "prd"]
         voigt = true
