@@ -29,29 +29,15 @@ function calc_broadening(
     γ = zero(T)
     # Natural broadening
     γ += γ_params.natural
-    # van der Waals broadening (ABO or Unsold recipes), perturber is H I
-    γ += _γ_add(γ_params.hydrogen_const, γ_params.hydrogen_exp, temperature, h_neutral_density)
-    # Quadratic Stark broadening, perturber are electrons
-    γ += _γ_add(γ_params.electron_const, γ_params.electron_exp, temperature, e_density)
-    # Linear Stark broadening
-    if γ_params.stark_linear_const != 0.0
-        γ += γ_params.stark_linear_const * e_density ^ γ_params.stark_linear_exp
+    nprocess = length(γ_params.coeff)
+    for i in 1:nprocess
+        γ += (
+            γ_params.coeff[i] *
+            temperature ^ γ_params.temp_exp[i] *
+            e_density ^ γ_params.electron_exp[i] *
+            h_neutral_density ^ γ_params.hydrogen_exp[i]
+        )
     end
-    return γ
-end
-
-
-function _γ_add(
-    multiplier::AbstractVector{<: Real},
-    exponent::AbstractVector{<: Real},
-    base::AbstractFloat,
-    perturber_density::T,
-)::T where T <: AbstractFloat
-    γ = zero(T)
-    for (mult, expo) in zip(multiplier, exponent)
-        γ += mult * base ^ expo
-    end
-    γ *= perturber_density
     return γ
 end
 

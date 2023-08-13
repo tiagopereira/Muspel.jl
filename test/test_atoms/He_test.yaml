@@ -16,7 +16,7 @@ atomic_levels:
 radiative_bound_bound:
 - transition: [lev7, lev1]
   f_value: 0.2761
-  type_profile: Voigt
+  profile_type: Voigt
   broadening:
       - {type: Natural, value: 1800000000.0, unit: s^-1}
       - {type: Stark_quadratic, coefficient: 1.0}

@@ -1,6 +1,8 @@
+using AtomicData
+
 @testset "intensity.jl" begin
     FALC_RH_file = joinpath(@__DIR__, "..", "data", "atmospheres", "FALC.hdf5")
-    H_ATOM_file = joinpath(@__DIR__, "..", "data", "H_test.yaml")
+    H_ATOM_file = "test_atoms/H_test.yaml"
     @testset "calc_line_1D!" begin
         atm = read_atmos_rh(FALC_RH_file)[1, 1]
         h_atom = read_atom(H_ATOM_file)
@@ -36,7 +38,7 @@
                8.4517f16, 1.5316f17, 2.4973f17, 3.8322f17]
         σ_itp = get_σ_itp(atm, my_line.λ0, empty([""]))  # no background atoms
         a = LinRange(1f-4, 1f1, 20000)
-        v = LinRange(-5f2, 5f2, 5000)
+        v = LinRange(0f2, 5f2, 2500)
         voigt_itp = create_voigt_itp(a, v)
         buf = RTBuffer(atm.nz, my_line.nλ, Float32)
 
@@ -46,7 +48,7 @@
         @test buf.intensity[end] == buf.int_tmp[1]
         S_Planck = blackbody_λ.(my_line.λ0, atm.temperature)
         @test isapprox(S_Planck, buf.source_function, rtol=1e-2)  # S = B for continuum
-        @test isapprox(buf.j_c ./ buf.α_c, buf.source_function, rtol=1e-2) # S = S_c
+        @test isapprox(buf.j_c ./ buf.α_c, buf.source_function, rtol=1e-2)  # S = S_c
         @test all(buf.source_function .> 0)
         @test all(buf.α_c .> 0)
         @test all(buf.j_c .> 0)
@@ -60,14 +62,12 @@
         # Tests for this specific line profile
         @test argmin(buf.intensity) == my_line.nλ ÷ 2  # no velocity, min at line centre
         @test buf.intensity[1] > buf.intensity[my_line.nλ ÷ 2 + 1]  # absorption line
-        @test isapprox(buf.intensity[1], buf.intensity[end], rtol=1e-5)
-        @test isapprox(buf.intensity[my_line.nλ ÷ 2 + 1], 4.683295, rtol=1e-3)  # line core
-        # rtol set to 1e-1 while changes propagate to Transparency, to replace by 1e-3
-        @test isapprox(buf.intensity[1], 27.677929, rtol=1e-1)    # continuum intensity
-        @test isapprox(buf.intensity[26], 15.4686165, rtol=1e-1)  # line wing
+        @test isapprox(buf.intensity[my_line.nλ ÷ 2 + 1], 4.673165, rtol=1e-3)  # line core
+        @test isapprox(buf.intensity[1], 27.279392, rtol=1e-3)   # continuum intensity
+        @test isapprox(buf.intensity[19], 15.642044, rtol=1e-3)  # line wing
         @test isapprox(  # symmetric line profile
             buf.intensity[1:my_line.nλ ÷ 2],
-            reverse(buf.intensity[my_line.nλ ÷ 2 + 2:end]),
+            reverse(buf.intensity[my_line.nλ ÷ 2+1:end]),
             rtol=1e-3
         )
         @test all(diff(buf.intensity[1:my_line.nλ ÷ 2]) .< 0)        # smooth decrease
@@ -79,6 +79,6 @@
 
         calc_line_1D!(my_line, buf, atm, n_u * 0, n_u * 0, σ_itp, voigt_itp)  # no line
         @test all(buf.intensity .== buf.intensity[1])
-        @test isapprox(buf.intensity[1], 28.537605, rtol=1e-2)
+        @test isapprox(buf.intensity[1], 28.538631, rtol=1e-3)
     end
 end

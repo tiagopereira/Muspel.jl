@@ -8,10 +8,12 @@ element:
 
 
 atomic_levels:
-  lev1_ion1: {energy: {value: 109677.619, unit: cm^-1}, g: 1, stage: 2, label: H II}
   lev1: {energy: {value: 0.0, unit: cm^-1}, g: 2, stage: 1, label: H I 1S 2SE}
-  lev3: {energy: {value: 97491.217, unit: cm^-1}, g: 18, stage: 1, label: H I 3D 2DE}
-  lev2: {energy: {value: 82258.214, unit: cm^-1}, g: 8, stage: 1, label: H I 2P 2PO}
+  lev2: {energy: {value: 82259.158, unit: cm^-1}, g: 8, stage: 1, label: H I 2P 2PO}
+  lev3: {energy: {value: 97492.304, unit: cm^-1}, g: 18, stage: 1, label: H I 3D 2DE}
+  lev4: {energy: {value: 102823.853, unit: cm^-1}, g: 32, stage: 1, label: H I 4F 2FO}
+  lev5: {energy: {value: 105291.657, unit: cm^-1}, g: 50, stage: 1, label: H I 5G 2GE}
+  lev1_ion1: {energy: {value: 109677.617, unit: cm^-1}, g: 1, stage: 2, label: H II continuum}
 
 radiative_bound_bound:
   []

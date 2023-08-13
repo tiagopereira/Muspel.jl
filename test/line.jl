@@ -10,10 +10,6 @@ import SpecialFunctions: erfcx
     @test isapprox(damping(1e8, 500., 0.01), 0.0006636047, rtol=1e-6)
     @test damping(0.0, 500., 0.01) == 0.
 
-    @test Muspel._γ_add([1, 2, 3], [1, 1, 1], 1., 1.) == 6
-    @test Muspel._γ_add([1, 1, 1], [1, 2, 3], 2., 1.) == 14
-    @test Muspel._γ_add([1], [1], 2.5, 15.) == 15 * Muspel._γ_add([1], [1], 2.5, 1.)
-
     na = 10
     nv = 10
     a = LinRange(1f-4, 1f1, na)

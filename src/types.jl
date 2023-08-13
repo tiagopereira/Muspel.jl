@@ -91,18 +91,16 @@ Base.getindex(a::AbstractAtmos3D, i, j) = Atmosphere1D(
 abstract type AbstractBroadening{T <: AbstractFloat} end
 
 
-struct LineBroadening{N, M, T} <: AbstractBroadening{T}
+struct LineBroadening{N, T} <: AbstractBroadening{T}
     natural::T
-    hydrogen_const::SVector{N, T}
+    coeff::SVector{N, T}
+    temp_exp::SVector{N, T}
     hydrogen_exp::SVector{N, T}
-    electron_const::SVector{M, T}
-    electron_exp::SVector{M, T}
-    stark_linear_const::T
-    stark_linear_exp::T
+    electron_exp::SVector{N, T}
 end
 
 
-struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
+struct AtomicLine{N, FloatT <: AbstractFloat, IntT <: Integer}
     nλ::IntT
     χup::FloatT
     χlo::FloatT
@@ -119,7 +117,7 @@ struct AtomicLine{N, M, FloatT <: AbstractFloat, IntT <: Integer}
     Voigt::Bool
     label_up::String
     label_lo::String
-    γ::LineBroadening{N, M, FloatT}
+    γ::LineBroadening{N, FloatT}
 end
 
 

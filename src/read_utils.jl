@@ -106,6 +106,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
             vξ = _assign_unit(waves["vmicro_char"])
             asymm = waves["asymmetric"]
             λ = calc_λline_RH(λ0, nλ, qcore, qwing, vξ; asymm=asymm)
+            nλ = length(λ)  # when asymm=true, RH forces an even nλ
         elseif waves["type"] == "MULTI"
             q0 = waves["q0"]
             qmax = waves["qmax"]
@@ -253,11 +254,9 @@ end
 
 function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z; T=Float64)
     γ_rad = zero(T)
-    stark_linear_const = zero(T)
-    stark_linear_exp = zero(T)
-    hydrogen_const = zeros(T, 0)
+    coeff = zeros(T, 0)
+    temp_exp = zeros(T, 0)
     hydrogen_exp = zeros(T, 0)
-    electron_const = zeros(T, 0)
     electron_exp = zeros(T, 0)
 
     electron_perturb = ["stark_quadratic"]
@@ -270,40 +269,45 @@ function _read_broadening(data::Dict, mass, χup, χlo, χ∞, Z; T=Float64)
             type = lowercase(mechanism["type"])
             if type == "natural"
                 γ_rad = ustrip(_assign_unit(mechanism) |> u"s^-1")
-            elseif type == "stark_linear"
-                stark_linear_const, stark_linear_exp = _read_broadening_single(
-                    mechanism, mass, χup, χlo, χ∞, Z
-                )
-            elseif type in electron_perturb
+            elseif type == "stark_linear_sutton"
+                # Exponent on n_e, no dependence on temperature nor on n_H
                 tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
-                append!(electron_const, tmp_c)
+                append!(coeff, tmp_c)
+                append!(temp_exp, zero(T))
+                append!(hydrogen_exp, zero(T))
                 append!(electron_exp, tmp_e)
-            elseif type in hydrogen_perturb
+            elseif type in electron_perturb
+                # Exponent on temperature, linear on n_e, no dependence on n_H
                 tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
-                append!(hydrogen_const, tmp_c)
-                append!(hydrogen_exp, tmp_e)
+                append!(coeff, tmp_c)
+                append!(temp_exp, tmp_e)
+                append!(hydrogen_exp, zero(T))
+                append!(electron_exp, one(T))
+            elseif type in hydrogen_perturb
+                # Exponent on temperature, linear on n_H, no dependence on n_E
+                tmp_c, tmp_e = _read_broadening_single(mechanism, mass, χup, χlo, χ∞, Z)
+                append!(coeff, tmp_c)
+                append!(temp_exp, tmp_e)
+                append!(hydrogen_exp, one(T))
+                append!(electron_exp, zero(T))
             else
                 @warn "Unsupported line broadening type $type, ignoring"
             end
         end
     end
-    n_hydr = length(hydrogen_const)
-    n_elec = length(electron_const)
-    hydrogen_const = SVector{n_hydr, T}(hydrogen_const)
-    hydrogen_exp = SVector{n_hydr, T}(hydrogen_exp)
-    electron_const = SVector{n_elec, T}(electron_const)
-    electron_exp = SVector{n_elec, T}(electron_exp)
-    broadening = LineBroadening{n_hydr, n_elec, T}(
+    n_processes = length(coeff)
+    coeff = SVector{n_processes, T}(coeff)
+    temp_exp = SVector{n_processes, T}(temp_exp)
+    hydrogen_exp = SVector{n_processes, T}(hydrogen_exp)
+    electron_exp = SVector{n_processes, T}(electron_exp)
+    broadening = LineBroadening{n_processes, T}(
         γ_rad,
-        hydrogen_const,
+        coeff,
+        temp_exp,
         hydrogen_exp,
-        electron_const,
         electron_exp,
-        stark_linear_const,
-        stark_linear_exp,
     )
     return broadening
-
 end
 
 
@@ -356,7 +360,7 @@ function _read_broadening_single(data::Dict, mass, χup, χlo, χ∞, Z)
             tmp_exp = 1/6
         end
         tmp_const = coefficient * C_4
-    elseif type == "stark_linear"
+    elseif type == "stark_linear_sutton"
         n_u = data["n_upper"]
         n_l = data["n_lower"]
         tmp_const = data["coefficient"] * γ_stark_linear(1.0u"m^-3", n_u, n_l) * 1.0u"m^3"
