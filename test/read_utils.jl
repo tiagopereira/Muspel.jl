@@ -6,32 +6,43 @@ import PhysicalConstants.CODATA2018: h, c_0
 @testset "read_utils.jl" begin
     @testset "read_atom" begin
         # Single/Double precision
-        @test (typeof(read_atom("test_atoms/H_test.yaml")) == AtomicModel{4, Float64,
+        @test (typeof(read_atom("test_atoms/H_test.yaml")) == AtomicModel{6, Float64,
                                                                           Int64})
         @test (typeof(read_atom("test_atoms/H_test.yaml", FloatT=Float32, IntT=Int32)
-                     ) == AtomicModel{4, Float32, Int32}
+                     ) == AtomicModel{6, Float32, Int32}
         )
         # Simple fields
         H = read_atom("test_atoms/H_test.yaml")
         H_yaml = YAML.load_file("test_atoms/H_test.yaml")
         H_empty = read_atom("test_atoms/H_test_empty.yaml")
         @test H.element == :H
-        @test H.nlevels == 4
-        @test H.nlines == 2
+        @test H.nlevels == 6
+        @test H.nlines == 10
         @test H_empty.nlines == H_empty.ncontinua == 0
-        @test H.ncontinua == 2
+        @test H.ncontinua == 5
         @test H.Z == 1
         @test H.mass == 1.6738233791328e-27
         @test H_empty.mass == 1.674e-27
         @test H.χ[1] == 0.0
-        @test all(H.χ[2:end] ≈ [1.6340148841677004e-18, 1.9366102411805722e-18,
-                                2.1786865188450865e-18])
+        @test H.χ[2:end] ≈ [
+            1.6340336362165914,
+            1.9366318338470396,
+            2.0425401680794047,
+            2.0915617583999603,
+            2.178686479116169,
+        ] * 1e-18
         @test H_empty.χ == H.χ
-        @test H.g == [2, 8, 18, 1]
+        @test H.g == [2, 8, 18, 32, 50, 1]
         @test H_empty.g == H.g
-        @test H.stage == [1, 1, 1, 2]
+        @test H.stage == [1, 1, 1, 1, 1, 2]
         @test H_empty.stage == H.stage
-        @test H.label == ["H I 1S 2SE", "H I 2P 2PO", "H I 3D 2DE", "H II"]
+        @test H.label == [
+            "H I 1S 2SE",
+            "H I 2P 2PO",
+            "H I 3D 2DE",
+            "H I 4F 2FO",
+            "H I 5G 2GE",
+            "H II continuum"]
         @test H_empty.label == H.label
         # Lines
         # Test fields of H.lines one at a time. (AtomicLine contains string fields)
@@ -42,7 +53,7 @@ import PhysicalConstants.CODATA2018: h, c_0
                 Ref(H.χ*u"J"),
                 Ref(H.g),
                 Ref(H.stage),
-                Ref(["lev1", "lev2", "lev3", "lev1_ion1"]),
+                Ref(["lev1", "lev2", "lev3", "lev4", "lev5", "lev1_ion1"]),
                 Ref(H.label),
                 H.mass*u"kg"
         )
@@ -53,10 +64,11 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test H_empty.continua == Vector{AtomicContinuum}()
         @test length(H_empty.continua) == H_empty.ncontinua
         @test all(
-            H.continua .== Muspel.read_continuum.(H_yaml["radiative_bound_free"],
-                                                  Ref(H.χ*u"J"),
-                                                  Ref(H.stage),
-                                                  Ref(["lev1", "lev2", "lev3", "lev1_ion1"])
+            H.continua .== Muspel.read_continuum.(
+                H_yaml["radiative_bound_free"],
+                Ref(H.χ*u"J"),
+                Ref(H.stage),
+                Ref(["lev1", "lev2", "lev3", "lev4", "lev5", "lev1_ion1"])
             )
         )
     end
@@ -126,9 +138,10 @@ import PhysicalConstants.CODATA2018: h, c_0
         @test line.f_value == dline["f_value"]
         @test line.label_up == "b"
         @test line.label_lo == "a"
-        @test all(line.γ.hydrogen_const .== [2.3e-15])
-        @test all(line.γ.hydrogen_exp .== [0.0])
-        @test all(line.γ.electron_const .== [0.0])
+        @test line.γ.coeff ≈ [0, 0.000617172159983022, 2.3e-15]  # will be valid only with Transparency.jl >= 0.2.1
+        @test line.γ.temp_exp == [1/6, 0, 0]
+        @test line.γ.electron_exp == [1, 2/3, 0]
+        @test line.γ.hydrogen_exp == [0, 0, 1]
         # when "data" in keys:
         @test line.nλ == 3
         @test line.λ == [100.0, 200.0, 300.0]
@@ -153,16 +166,16 @@ import PhysicalConstants.CODATA2018: h, c_0
         dline = data["radiative_bound_bound"][1]
         line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
         @test line.nλ == 5
-        @test all(line.λ .≈ [397.28917142978565, 397.337592128717,
-                        397.3860246364557, 397.43463712667443, 403.7840001532265])
+        @test all(line.λ .≈ [ 390.99997262033446, 397.1923654228526, 397.28917142978565,
+                              397.3860246364557, 403.7840001532265])
         @test line.PRD == false
         @test line.Voigt == true
         # Else unrecognized types:
         dline_u = dline
-        dline_u["type_profile"] = "Something"
+        dline_u["profile_type"] = "Something"
         @test_throws ErrorException Muspel.read_line(
                      dline, χ, g, stage, level_ids, label, mass)
-        dline_u["type_profile"] = "Voigt"
+        dline_u["profile_type"] = "Voigt"
         dline_u["wavelengths"]["type"] = "Something"
         @test_throws ErrorException Muspel.read_line(
                      dline, χ, g, stage, level_ids, label, mass)
@@ -310,14 +323,14 @@ import PhysicalConstants.CODATA2018: h, c_0
         d2 = Dict("type" => "Stark_quadratic", "c_4" => Dict("unit" => "m^3/s", "value" => 2.0))
         @test Muspel._read_broadening(
                 Dict("broadening"=>[d1]), mass, χup, χlo, χ∞, Z) ==
-                          LineBroadening{1, 0, Float64}(0.0, [0.0], [0.3], [], [], 0.0, 0.0)
+                    LineBroadening{1, Float64}(0.0, [0.0], [0.3], [1.0], [0.0])
         @test Muspel._read_broadening(
             Dict("broadening"=>[d1, d1]), mass, χup, χlo, χ∞, Z) ==
-                LineBroadening{2, 0, Float64}(0.0, [0.0, 0.0], [0.3, 0.3], [], [], 0.0, 0.0)
+             LineBroadening{2, Float64}(0.0, [0.0, 0.0], [0.3, 0.3], [1.0, 1.0], [0.0, 0.0])
         @test Muspel._read_broadening(
             Dict("broadening"=>[d1, d2]), mass, χup, χlo, χ∞, Z) ==
-                    LineBroadening{1, 1, Float64}(0.0, [0.0], [0.3], [2.0], [0.0], 0.0, 0.0)
+             LineBroadening{2, Float64}(0.0, [0.0, 2.0], [0.3, 0.0], [1.0, 0.0], [0.0, 1.0])
         @test Muspel._read_broadening(Dict("something"=>1), mass, χup, χlo, χ∞, Z) ==
-                                LineBroadening{0, 0, Float64}(0.0, [], [], [], [], 0.0, 0.0)
+                 LineBroadening{0, Float64}(0.0, Float64[], Float64[], Float64[], Float64[])
     end
 end

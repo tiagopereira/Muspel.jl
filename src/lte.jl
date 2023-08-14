@@ -4,6 +4,7 @@ Calculate quantities in local thermodynamical equilibrium (LTE).
 
 const saha_const_u = ustrip(h^2 / (2 * π * m_e * k_B))
 const k_B_u = ustrip(k_B)
+const Hχ∞ = 2.1787094174620437e-18  # in J, from NIST retrieved Jan 2023
 
 
 """
@@ -39,13 +40,13 @@ distribution.
 - `populations`: MVector{nlevels} with relative level populations in m^-3
 """
 function saha_boltzmann(
-    χ::SVector,
-    g::SVector,
-    stage::SVector,
+    χ::SVector{N, <: Real},
+    g::SVector{N, <: Real},
+    stage::SVector{N, <: Real},
     temperature::T,
     electron_density::T,
-    atom_density::T,
-) where T <: AbstractFloat
+    atom_density::Real,
+) where {N, T <: AbstractFloat}
     populations = MVector{length(χ), T}(undef)
     saha_boltzmann!(χ, g, stage, temperature, electron_density, atom_density, populations)
     return populations
@@ -55,7 +56,7 @@ function saha_boltzmann(
     atom::AtomicModel,
     temperature::T,
     electron_density::T,
-    atom_density::T,
+    atom_density::Real,
 ) where T <: AbstractFloat
     saha_boltzmann(atom.χ, atom.g, atom.stage, temperature, electron_density, atom_density)
 end
@@ -95,14 +96,14 @@ according to the Saha-Boltzmann distribution, placing them in an existing
 - `populations`: 1D array for output, must be same length as number of levels
 """
 function saha_boltzmann!(
-    χ::SVector,
-    g::SVector,
-    stage::SVector,
-    temperature::T,
-    electron_density::T,
-    atom_density::T,
-    populations::AbstractArray{T, 1},
-) where T <: AbstractFloat
+    χ::SVector{N, <: Real},
+    g::SVector{N, <: Real},
+    stage::SVector{N, <: Real},
+    temperature::Real,
+    electron_density::Real,
+    atom_density::Real,
+    populations::AbstractVector{T},
+) where {N, T <: AbstractFloat}
     nlevels = length(χ)
     @assert nlevels == length(populations)
     kT = convert(T, k_B_u * temperature)
@@ -121,16 +122,17 @@ function saha_boltzmann!(
     for i = 1:nlevels
         populations[i] *= atom_density / total
     end
-    return
+    return nothing
 end
+
 
 function saha_boltzmann!(
     atom::AtomicModel,
-    temperature::T,
-    electron_density::T,
-    atom_density::T,
-    populations::AbstractArray{T, 1},
-) where T <: AbstractFloat
+    temperature::Real,
+    electron_density::Real,
+    atom_density::Real,
+    populations::AbstractVector{<: Real},
+)
     saha_boltzmann!(
         atom.χ,
         atom.g,
@@ -140,4 +142,16 @@ function saha_boltzmann!(
         atom_density,
         populations
     )
+    return nothing
+end
+
+
+"""
+    h_ionfrac_saha(temp::T, electron_density::T)::T where {T <: Real}
+
+Calculate ionisation fraction of hydrogen using Saha.
+"""
+function h_ionfrac_saha(temp::T, electron_density::Real)::T where T <: Real
+    saha = (temp / saha_const_u) ^ (3/2) / electron_density * exp(-Hχ∞ / (k_B_u * temp))
+    return 1 - (1 / (1 + saha))
 end

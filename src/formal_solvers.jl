@@ -66,6 +66,7 @@ end
         initial_condition=:source
     ) where T <: AbstractFloat
 
+DEPRECATED, use piecewise_1D_linear!
 Compute piecewise integration of the radiative transfer equation,
 assuming linear integration of the source function, for a given
 height `z`, extinction `α` and `source_function`. The optional
@@ -109,6 +110,64 @@ function piecewise_1D_linear(
     end
     return intensity
 end
+
+
+"""
+    piecewise_1D_linear!(
+        z::AbstractVector{T},
+        α::AbstractVector{T},
+        source_function::AbstractVector{T},
+        intensity::AbstractVector{T};
+        to_end::Bool=false,
+        initial_condition=:source
+    ) where T <: AbstractFloat
+
+Compute piecewise integration of the radiative transfer equation,
+assuming linear integration of the source function, for a given
+height `z`, extinction `α` and `source_function` and `intensity`
+(existing array where the output will be saved into). The optional
+keyword argument `to_end` defines the direction of the integration:
+if `false` (default) will start to integrate intensity from the last
+element to the first, and if `true` will integrate from the first
+element to the last. `initial_condition` can take two values: `:zero` for
+no radiation, or `:source` (default) to take the source function at the
+starting point.
+"""
+function piecewise_1D_linear!(
+    z::AbstractVector{T},
+    α::AbstractVector{T},
+    source_function::AbstractVector{T},
+    intensity::AbstractVector{T};
+    to_end::Bool=false,
+    initial_condition=:source
+) where T <: AbstractFloat
+    ndep = length(z)
+    if to_end
+        start = 1
+        incr = 1
+        depth_range = 2:ndep
+    else
+        start = ndep
+        incr = -1
+        depth_range = ndep-1:-1:1
+    end
+    if initial_condition == :source
+        intensity[start] = source_function[start]
+    elseif initial_condition == :zero
+        intensity[start] *= 0
+    else
+        error("NotImplemented initial condition $initial_condition")
+    end
+    for i in depth_range
+        Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
+        ΔS = (source_function[i-incr] - source_function[i]) / Δτ
+        w1, w2 = _w2(Δτ)
+        intensity[i] = (1 - w1)*intensity[i-incr] + w1*source_function[i] + w2*ΔS
+    end
+    return nothing
+end
+
+
 
 
 """

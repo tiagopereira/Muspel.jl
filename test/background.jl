@@ -1,6 +1,7 @@
 using AtomicData
 using Interpolations
 using Unitful
+import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, σH_continuum, σH_atoms_bf
 
 @testset "background.jl" begin
     abund = get_solar_abundances()
@@ -21,17 +22,34 @@ using Unitful
     n = [1.0e15, 7.1e17, 1.0e20]
 
     @testset "σ_itp" begin
-        @test typeof(itp_lte) <: ExtinctionItpLTE{Float64}
-        @test typeof(itp_nlte) <: ExtinctionItpNLTE{Float64}
+        @test isa(itp_lte, ExtinctionItpLTE{Float64})
+        @test isa(itp_nlte, ExtinctionItpNLTE{Float64})
         @test itp_nlte_empty.σ_atoms.(log_temp, 19) ≈ zeros(Float64, length(log_temp))
         @test_throws MethodError create_σ_itp_LTE(λ[2], [3.1, 3.3], log_ne, H, atoms, σ_atom_itp)
         @test_throws MethodError create_σ_itp_LTE(λ[2], log_temp, [15, 19], H, atoms, σ_atom_itp)
         @test_throws MethodError create_σ_itp_NLTE(λ[2], [3.1, 3.3], log_ne, atoms, σ_atom_itp)
         @test_throws MethodError create_σ_itp_NLTE(λ[2], log_temp, [15, 19], atoms, σ_atom_itp)
+        log_ne2 = 15.0:0.025:20.0 # make same number of elements as log_temp
+        itp_nlte2 = create_σ_itp_NLTE(λ[2], log_temp, log_ne2, atoms, σ_atom_itp)
+        atoms_list = [
+            "test_atoms/He_test.yaml",
+            "test_atoms/H_test.yaml",
+            "test_atoms/H_test_empty.yaml"
+        ]
+        z_tmp = [1e5, 0., -1e5]
+        atmos_test = Atmosphere1D(1, 1, length(log_temp), z_tmp, 10 .^ log_temp,
+                                  [0., 0., 0.], 10 .^log_ne2, n, n)
+        itp_test = get_σ_itp(atmos_test, 500., atoms_list; npts=101)
+        @test isa(itp_test, ExtinctionItpNLTE{Float64})
+        @test isapprox(
+            α_cont(itp_nlte2, 5000., 1e20, 1e20, 1e20),
+            α_cont(itp_test, 5000., 1e20, 1e20, 1e20),
+            rtol=1e-3
+        )
+        @test_throws ErrorException get_σ_itp(atmos_test, 500., ["nofile.yaml"])
     end
 
     @testset "α_cont" begin
-        # Must check if this test prints out stuff!
         for ni in n
             ion_frac = [saha_boltzmann(H, t, ni, 1.)[end] for t in temp]
             nHI = ni .* (1 .- ion_frac)
@@ -50,11 +68,11 @@ using Unitful
             )
         end
         # Some checks against implementation
-        prev = [3.16626001405037e-9  1.239048159956712e-10  2.8360301410773617e-10
-                2.33657579854738e-8  4.053625784186357e-10  2.510766400844858e-10
-                3.19501480342208e-8  5.145340948777657e-10  8.563030045830751e-10
-                1.18347819704756e-9  2.089109743624956e-10  3.985164682993982e-9
-                2.09183827123449e-10 2.708131463500764e-10  6.807153975940548e-9]
+        prev = [3.166260014050373e-9   1.2390038437211058e-10  2.8355199724497864e-10
+                2.3365757985473882e-8  4.1969276633548743e-10  1.4792957612236907e-9
+                3.19501480342208e-8    5.232736686830469e-10   2.039376943876063e-9
+                1.1834781970475661e-9  2.1924407940343387e-10  5.4690898709933755e-9
+                2.0918382712344928e-10 2.886350125152959e-10   9.258069388938863e-9]
         for (i, λi) in enumerate(λ)
             itp = create_σ_itp_LTE(λi, log_temp, log_ne, H, atoms, σ_atom_itp)
             @test α_cont.(Ref(itp), temp, 1e18, 1e20) ≈ prev[i, :]
@@ -63,8 +81,8 @@ using Unitful
 
     @testset "α_cont_no_itp" begin
         # Against previous implementation:
-        prev = [1.0527843527035139, 3.572751264093684, 4.628599312906391,
-                1.9725067321692636, 2.5417412522755837] * 1e-8
+        prev = [1.052784352703514, 3.5727512640936836, 4.628599312906391,
+               1.9725067321692635, 2.5417412522755836] * 1e-8
         @test all(α_cont_no_itp.(λ, 6e3, 1e20, 1e20, 4e15) .≈ prev)
         # Consistency check, Hmin maximum extinction
         @test argmax(α_cont_no_itp.(λ, 6e3, 1e20, 1.0e20, 4e15)) == 3
@@ -72,16 +90,16 @@ using Unitful
 
     @testset "σH" begin
         # Against previous implementation:
-        prev = [0.38752066260764904, 2.9073809748885355, 3.9631886441218376,
-                1.3072036044702443, 1.8764158215614224] * 1e-28
-        @test all(Muspel.σH_continuum.(λ, 6e3, 1e20, 4e-5) .≈ prev)
-        @test argmax(Muspel.σH_continuum.(λ, 6e3, 1e20, 4e-5)) == 3
-        @test Muspel.σH_atoms_bf(σ_atom_itp_empty, atoms_empty, 500., 6000., 1e20) == 0.0
+        prev = [0.38752066260764906, 2.9073809748885355, 3.963188644121838,
+                1.3072036044702444, 1.8764158215614224] * 1e-28
+        @test all(σH_continuum.(λ, 6e3, 1e20, 4e-5) .≈ prev)
+        @test argmax(σH_continuum.(λ, 6e3, 1e20, 4e-5)) == 3
+        @test σH_atoms_bf(σ_atom_itp_empty, atoms_empty, 500., 6000., 1e20) == 0.0
         # Check that cross section matches data from atom with no stimulated emission
         Ly_cont = atoms[2].continua[1]  # Lyman continuum
-        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, Ly_cont.λ[end], 0., 1e20) ≈ Ly_cont.σ[end]
-        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, λ[1], 6e3, 1e20) ≈ 2.884113795163476e-31
-        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, λ[end], 6e3, 1e20) ≈ 0.0
+        @test σH_atoms_bf(σ_atom_itp, atoms, Ly_cont.λ[end], 0., 1e20) ≈ Ly_cont.σ[end]
+        @test σH_atoms_bf(σ_atom_itp, atoms, λ[1], 6e3, 1e20) ≈ 2.8831654074700022e-31
+        @test σH_atoms_bf(σ_atom_itp, atoms, λ[end], 6e3, 1e20) ≈ 4.787807147547797e-31
     end
 
     @testset "σ_atoms_bf_tables" begin
@@ -92,11 +110,11 @@ using Unitful
         # Using current abundances:
         @test σ_atom_itp[1][1](50.427) / abund[atoms[1].element] == 6.783e-22
         @test σ_atom_itp[1][2](14.609) / abund[atoms[1].element] == 4.844e-23
-        @test σ_atom_itp[2][2](364.70521515693) / abund[atoms[2].element] ≈ 1.379e-21
+        @test σ_atom_itp[2][2](364.70521515693) / abund[atoms[2].element] ≈ 1.3788716766e-21
         # Using previous abundances:
         @test σ_atom_itp[1][1](50.427) ≈ 6.783e-22 * 0.08203515443298176
         @test σ_atom_itp[1][2](14.609) ≈ 4.844e-23 * 0.08203515443298176
-        @test σ_atom_itp[2][2](364.70521515693) ≈ 1.379e-21 * 1.0
+        @test σ_atom_itp[2][2](364.70521515693) ≈ 1.3788716752197066e-21
         # A few edges:
         @test σ_atom_itp[1][1](50.428) == 0
         @test σ_atom_itp[1][1](12.7) == 0
@@ -106,8 +124,8 @@ using Unitful
     end
     @testset "σH_atoms_bf" begin
         # Against previous implementation:
-        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, 251.0, 6000.0, 1.0e19) ≈ 5.2185826e-30
-        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, 10.0, 6000.0, 1.0e19) == 0
-        @test Muspel.σH_atoms_bf(σ_atom_itp, atoms, 370.0, 6000.0, 1.0e19) == 0
+        @test σH_atoms_bf(σ_atom_itp, atoms, 251.0, 6000.0, 1.0e19) ≈ 5.261436909864e-30
+        @test σH_atoms_bf(σ_atom_itp, atoms, 10.0, 6000.0, 1.0e19) == 0
+        @test σH_atoms_bf(σ_atom_itp, atoms, 370.0, 6000.0, 1.0e19) ≈ 1.5363426195935e-31
     end
 end
