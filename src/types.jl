@@ -118,7 +118,7 @@ struct AtomicLine{
     λ0::FloatT  # in nm
     f_value::FloatT
     mass::FloatT
-    λ::Vector{FloatT}
+    λ::V
     PRD::Bool
     Voigt::Bool
     label_up::S
