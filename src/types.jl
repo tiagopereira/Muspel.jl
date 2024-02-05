@@ -104,7 +104,10 @@ struct AtomicLine{
     N,
     FloatT <: AbstractFloat,
     IntT <: Integer,
-    V <:AbstractVector{FloatT},
+    Vl <:AbstractVector{FloatT},
+    Vb <:AbstractVector{<: Real},
+    Vp <:AbstractVector{<: Real},
+    Vr <:AbstractVector{<: Real},
     S <: Union{Nothing, String},
 }
     nλ::IntT
@@ -118,12 +121,18 @@ struct AtomicLine{
     λ0::FloatT  # in nm
     f_value::FloatT
     mass::FloatT
-    λ::V
+    λ::Vl
     PRD::Bool
     Voigt::Bool
     label_up::S
     label_lo::S
     γ::LineBroadening{N, FloatT}
+    σr_strength::Vr
+    σr_shift::Vr
+    π_strength::Vp
+    π_shift::Vp
+    σb_strength::Vb
+    σb_shift::Vb
 end
 
 

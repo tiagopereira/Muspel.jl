@@ -15,6 +15,7 @@ export doppler_width, damping, calc_broadening, create_voigt_itp
 export blackbody_λ
 export calc_line_1D!, calc_τ_cont!
 export incline_atmos, incline_data!, incline_data_inv!, project_vector!
+export g_eff, g_LS, zeeman_strength, get_zeeman_components
 
 using AtomicData
 using Interpolations
@@ -38,5 +39,6 @@ include("read_atmos.jl")
 include("utils.jl")
 include("intensity.jl")
 include("incline.jl")
+include("zeeman.jl")
 
 end

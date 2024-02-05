@@ -11,3 +11,4 @@ include("utils.jl")       # done
 include("intensity.jl")   # done
 include("line.jl")        # done, could possibly be extended
 include("incline.jl")     # done, could possibly be extended
+include("zeeman.jl")      # done
