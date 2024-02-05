@@ -74,15 +74,15 @@ function parse_label_LS(label)
         'T' => 14, 'U' => 15,'V' => 11, 'W' => 12, 'X' => 19, 'Z' => 20
     )
     # Remove characters after O and E, handle all strange cases
-    if count('E', label) > 0 && count('O', label) > 0
+    if count("E", label) > 0 && count("O", label) > 0
         if findlast("E", label) > findlast("O", label)
             label = split(label, "E")[end-1]
         else
             label = split(label, "O")[end-1]
         end
-    elseif count('E', label) > 0
+    elseif count("E", label) > 0
         label = split(label, "E")[end-1]
-    elseif count('O', label) > 0
+    elseif count("O", label) > 0
         label = split(label, "O")[end-1]
     end
     tmp = split(label)
