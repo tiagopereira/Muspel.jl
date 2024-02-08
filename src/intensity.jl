@@ -9,7 +9,7 @@
         n_up::AbstractVector{T},
         n_lo::AbstractVector{T},
         σ_itp::ExtinctionItpNLTE{<:Real},
-        voigt_itp::Interpolations.AbstractInterpolation{<:Real, 2},
+        voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2},
     )
 
 Calculate emerging disk-centre intensity for a given line in a 1D atmosphere.
@@ -21,7 +21,7 @@ function calc_line_1D!(
     n_up::AbstractVector{T},
     n_lo::AbstractVector{T},
     σ_itp::ExtinctionItpNLTE{<:Real},
-    voigt_itp::Interpolations.AbstractInterpolation{<:Real, 2},
+    voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2},
 ) where T <: AbstractFloat
     γ_energy = ustrip((h * c_0 / (4 * π * line.λ0 * u"nm")) |> u"J")
 
@@ -50,7 +50,7 @@ function calc_line_1D!(
             # Wavelength-dependent part
             a = damping(buf.γ[iz], λ, buf.ΔλD[iz])  # very small dependence on λ
             v = (λ - line.λ0 + line.λ0 * atm.velocity_z[iz] / ustrip(c_0)) / buf.ΔλD[iz]
-            profile = voigt_itp(a, abs(v)) / (sqrt(π) * buf.ΔλD[iz])  # units nm^-1
+            profile = real(voigt_itp(a, abs(v))) / (sqrt(π) * buf.ΔλD[iz])  # units nm^-1
             # Part that only multiplies by wavelength:
             α_tmp = γ_energy * profile
             j_tmp = α_tmp
