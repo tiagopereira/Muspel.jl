@@ -186,3 +186,32 @@ struct RTBuffer{T <: AbstractFloat}
         new{T}(ndep, nλ, intensity, source_function, α_total, α_c, j_c, ΔλD, γ, int_tmp)
     end
 end
+
+
+struct RTBufferStokes{T <: AbstractFloat}
+    ndep::Int
+    nλ::Int
+    stokes::Array{T, 2}
+    profiles::Array{T, 2}
+    α_c::Vector{T}
+    j_c::Vector{T}
+    α_l::Vector{T}
+    j_l::Vector{T}
+    αI::Vector{T}
+    ΔλD::Vector{T}
+    adamp::Vector{T}
+    int_tmp::Array{T, 2}
+    function RTBufferStokes(ndep, nλ; t::Type{T}=Float32) where T
+        stokes = Array{T}(undef, nλ, 4)
+        profiles = Array{T}(undef, 6, ndep)
+        α_c = Vector{T}(undef, ndep)
+        j_c = Vector{T}(undef, ndep)
+        α_l = Vector{T}(undef, ndep)
+        j_l = Vector{T}(undef, ndep)
+        αI = Vector{T}(undef, ndep)
+        ΔλD = Vector{T}(undef, ndep)
+        adamp = Vector{T}(undef, ndep)
+        int_tmp = Array{T}(undef, ndep, 4)
+        new{T}(ndep, nλ, stokes, profiles, α_c, j_c, α_l, j_l, αI, ΔλD, adamp, int_tmp)
+    end
+end

@@ -7,8 +7,14 @@
         @test g_LS(1, 1, 0) == 1
         @test g_LS(1, 0, 1) == 2
         @test g_LS(1, 1, 1) == 1.5
+        @test g_jj(0, 1, 1, 1, 1) == 1
+        @test g_JK(0, 1, 1, 1, 1, 1) == 1
         @test typeof(g_LS(0, 0, 1)) == Float32
         @test typeof(g_LS(0., 0., 1.)) == Float64
+        @test typeof(g_jj(0, 0, 1, 1, 1)) == Float32
+        @test typeof(g_jj(0., 0., 1., 1., 1.)) == Float64
+        @test typeof(g_JK(0, 0, 1, 1, 1, 0)) == Float32
+        @test typeof(g_JK(0., 0., 1., 1., 1., 0.)) == Float64
         @test g_eff(0, 0, 1, 1) == 0
         @test g_eff(1, 1, 1, 1) == 1
         @test g_eff(2.5, 1, 2, 1) == g_eff(1, 2.5, 1, 2)
