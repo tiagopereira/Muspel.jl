@@ -1,7 +1,7 @@
 name = "Muspel"
 uuid = "6074595b-091a-495a-9b39-045a690b2c53"
 authors = ["Tiago M. D. Pereira", "Edvarda Harnes"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 AtomicData = "6b77412b-f4b7-4495-8b9c-778517285205"
