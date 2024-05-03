@@ -76,7 +76,7 @@ function read_continuum(cont::Dict, χ, stage, level_ids; FloatT=Float64, IntT=I
         n_eff = Transparency.n_eff(χ[up], χ[lo], Z_eff) |> NoUnits
         σ = σ_hydrogenic_bf_scaled.(σ0, λ, λedge, Z_eff, n_eff) .|> u"m^2"
     else
-        error("Photoionisation cross section data missing")
+        throw(ErrorException("Photoionisation cross section data missing"))
     end
     return AtomicContinuum{nλ, FloatT, IntT}(
         up, lo, nλ, ustrip(λedge), ustrip.(σ), ustrip.(λ))
@@ -117,7 +117,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
             vξ = _assign_unit(waves["qnorm"])
             λ = calc_λline_MULTI(λ0, nλ, q0, qmax, vξ; asymm=true)
         else
-            error("Unrecognised wavelength type")
+            throw(ErrorException("Unrecognised wavelength type"))
         end
     end
     prof = lowercase(line["profile_type"])
@@ -130,7 +130,7 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
     elseif prof in ["gaussian", "gauss", "doppler"]
         voigt = false
     else
-        error("Unsupported profile type $prof")
+        throw(ErrorException("Unsupported profile type $prof"))
     end
     # Energy of the first ionised stage above upper level
     χ∞ = minimum(χ[stage .== stage[up] + 1])
@@ -138,9 +138,15 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
     # Get Zeeman components
     Ju = (g[up] - 1) // 2
     Jl = (g[lo] - 1) // 2
-    Su, Lu = parse_label_LS(label[up])
-    Sl, Ll = parse_label_LS(label[lo])
-    σr_S, σr_Δ, π_S, π_Δ, σb_S, σb_Δ = get_zeeman_components(Sl, Ll, Jl, Su, Lu, Ju)
+    # find if there are Zeeman components
+    σr_S, σr_Δ, π_S, π_Δ, σb_S, σb_Δ = (Vector{Float32}() for _ in 1:6)
+    try
+        Su, Lu = parse_label_LS(label[up])
+        Sl, Ll = parse_label_LS(label[lo])
+        σr_S, σr_Δ, π_S, π_Δ, σb_S, σb_Δ = get_zeeman_components(Sl, Ll, Jl, Su, Lu, Ju)
+    catch
+        @info "Could not parse Zeeman components for transition $(label[up]) → $(label[lo])"
+    end
 
     return AtomicLine(
         nλ,
@@ -379,7 +385,7 @@ function _read_broadening_single(data::Dict, mass, χup, χlo, χ∞, Z)
         tmp_const = data["coefficient"] * γ_stark_linear(1.0u"m^-3", n_u, n_l) * 1.0u"m^3"
         tmp_exp = 2/3
     else
-        error("Unsupported type $type")
+        throw(ErrorException("Unsupported broadening type $type"))
     end
     return (ustrip(tmp_const |> u"m^3 / s"), tmp_exp)
 end

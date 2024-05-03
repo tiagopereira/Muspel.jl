@@ -96,7 +96,7 @@ function read_pops_rh(aux_file, species)::Array{Float32, 4}
         return populations
     catch e
         if isa(e, KeyError)
-            error("Could not find $species populations in $aux_file")
+            throw(ErrorException("Could not find $species populations in $aux_file"))
         else
             throw(e)
         end

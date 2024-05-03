@@ -313,11 +313,7 @@ julia> itp = get_σ_itp(atmos, 500.0, atom_files)
 function get_σ_itp(atmos::AbstractAtmos, λ::Real, atom_files::Vector{String}; npts=100)
     bckgr_atoms = Vector{AtomicModel}(undef, length(atom_files))
     for (index, file) in enumerate(atom_files)
-        if isfile(file)
-            bckgr_atoms[index] = read_atom(file)
-        else
-            error("Could not open background atom $file")
-        end
+        bckgr_atoms[index] = read_atom(file)
     end
     atom_interpolants = get_atoms_bf_interpolant(bckgr_atoms)
     t_range = log10.([Float64(minimum(atmos.temperature)),

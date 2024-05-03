@@ -46,7 +46,7 @@ import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, 
             α_cont(itp_test, 5000., 1e20, 1e20, 1e20),
             rtol=1e-3
         )
-        @test_throws ErrorException get_σ_itp(atmos_test, 500., ["nofile.yaml"])
+        @test_throws SystemError get_σ_itp(atmos_test, 500., ["nofile.yaml"])
     end
 
     @testset "α_cont" begin

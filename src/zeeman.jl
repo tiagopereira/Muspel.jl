@@ -45,7 +45,7 @@ Calculates strengths of Zeeman components. These strengths are normalised.
 function zeeman_strength(J_l, J_u, M_l, M_u)
     J, M = J_l, M_l
     if J_l == J_u == 0
-        error("Invalid transition, J_u = J_l = 0")
+        throw(DomainError("Invalid transition, J_u = J_l = 0"))
     end
     if M_u - M_l == 1
         if J_u - J_l == 1
@@ -55,7 +55,7 @@ function zeeman_strength(J_l, J_u, M_l, M_u)
         elseif J_u - J_l == -1
             strength = (3 * (J - M) * (J - M - 1)) / (2 * J * (2 * J - 1) * (2 * J + 1))
         else
-            error("Invalid transition, J_u - J_l != -1, 0, 1")
+            throw(DomainError("Invalid transition, J_u - J_l != -1, 0, 1"))
         end
     elseif M_u - M_l == 0
         if J_u - J_l == 1
@@ -65,7 +65,7 @@ function zeeman_strength(J_l, J_u, M_l, M_u)
         elseif J_u - J_l == -1
             strength = (3 * (J - M) * (J + M)) / (J * (2 * J - 1) * (2 * J + 1))
         else
-            error("Invalid transition, J_u - J_l != -1, 0, 1")
+            throw(DomainError("Invalid transition, J_u - J_l != -1, 0, 1"))
         end
     elseif M_u - M_l == -1
         if J_u - J_l == 1
@@ -75,10 +75,10 @@ function zeeman_strength(J_l, J_u, M_l, M_u)
         elseif J_u - J_l == -1
             strength = (3 * (J + M) * (J + M - 1)) / (2 * J * (2 * J - 1) * (2 * J + 1))
         else
-            error("Invalid transition, J_u - J_l != -1, 0, 1")
+            throw(DomainError("Invalid transition, J_u - J_l != -1, 0, 1"))
         end
     else
-        error("Invalid transition, M_u - M_l != -1, 0, 1")
+        throw(DomainError("Invalid transition, M_u - M_l != -1, 0, 1"))
     end
     return strength
 end
@@ -107,7 +107,7 @@ function parse_label_LS(label)
     end
     tmp = split(label)
     if length(tmp) == 0
-        error("Found empty label")
+        throw(ArgumentError("Found empty label"))
     else
         term = tmp[end]
         try
@@ -116,7 +116,7 @@ function parse_label_LS(label)
             L = orbital[uppercase(term[end])]
             return (S, L)
         catch e
-            error("Could not parse term symbol: $term")
+            throw(ArgumentError("Could not parse term symbol: $term"))
         end
     end
 end

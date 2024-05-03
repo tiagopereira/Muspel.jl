@@ -47,11 +47,11 @@
         end
         @test tmp_b ≈ tmp_pi ≈ tmp_r ≈ 1
         # Test invalid transitions
-        @test_throws ErrorException zeeman_strength(0, 0, 1, 0)
-        @test_throws ErrorException zeeman_strength(3, 0, 1, 0)
-        @test_throws ErrorException zeeman_strength(1, 1, 2, 0)
-        @test_throws ErrorException zeeman_strength(1, 3, 0, 1)
-        @test_throws ErrorException zeeman_strength(2, 0, 0, 0)
+        @test_throws DomainError zeeman_strength(0, 0, 1, 0)
+        @test_throws DomainError zeeman_strength(3, 0, 1, 0)
+        @test_throws DomainError zeeman_strength(1, 1, 2, 0)
+        @test_throws DomainError zeeman_strength(1, 3, 0, 1)
+        @test_throws DomainError zeeman_strength(2, 0, 0, 0)
     end
     @testset "parse_label" begin
         @test Muspel.parse_label_LS("CA II 3P6 4S 2SE") == (0.5, 0)
@@ -65,8 +65,8 @@
         @test Muspel.parse_label_LS("O II 2P2(3PE) 3P 4PO") == (1.5, 1)
         @test Muspel.parse_label_LS("HE I 1S 5F 3FO 4") == (1, 3)
         @test Muspel.parse_label_LS("9Z") == (4, 20)
-        @test_throws ErrorException Muspel.parse_label_LS("HE I")
-        @test_throws ErrorException Muspel.parse_label_LS("E asdPFS")
+        @test_throws ArgumentError Muspel.parse_label_LS("HE I")
+        @test_throws ArgumentError Muspel.parse_label_LS("E asdPFS")
     end
     @testset "zeeman_components" begin
         # normal Zeeman

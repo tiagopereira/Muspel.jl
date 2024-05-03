@@ -45,7 +45,7 @@ function piecewise_1D_nn(
     elseif initial_condition == :zero
         intensity[start] *= 0
     else
-        error("NotImplemented initial condition $initial_condition")
+        throw(ErrorException("NotImplemented initial condition $initial_condition"))
     end
     for i in depth_range
         Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
@@ -100,7 +100,7 @@ function piecewise_1D_linear(
     elseif initial_condition == :zero
         intensity[start] *= 0
     else
-        error("NotImplemented initial condition $initial_condition")
+        throw(ErrorException("NotImplemented initial condition $initial_condition"))
     end
     for i in depth_range
         Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
@@ -156,7 +156,7 @@ function piecewise_1D_linear!(
     elseif initial_condition == :zero
         intensity[start] *= 0
     else
-        error("NotImplemented initial condition $initial_condition")
+        throw(ErrorException("NotImplemented initial condition $initial_condition"))
     end
     for i in depth_range
         Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
