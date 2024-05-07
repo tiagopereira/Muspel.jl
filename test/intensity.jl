@@ -3,7 +3,7 @@ using AtomicData
 @testset "intensity.jl" begin
     FALC_RH_file = joinpath(@__DIR__, "..", "data", "atmospheres", "FALC.hdf5")
     H_ATOM_file = "test_atoms/H_test.yaml"
-    atm = read_atmos_rh(FALC_RH_file)[1, 1]
+    atm = read_atmos_rh(FALC_RH_file)[:, 1, 1]
     @testset "calc_line_1D!" begin
         h_atom = read_atom(H_ATOM_file)
         my_line = h_atom.lines[5]  # Halpha for example

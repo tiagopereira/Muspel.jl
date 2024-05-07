@@ -51,7 +51,7 @@ function calc_multi3d_8542(mesh_file, atmos_file, pops_file, atom_file)
     Threads.@threads for i in 1:atmos.nx
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
-            calc_line_1D!(my_line, buf, atmos[j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
+            calc_line_1D!(my_line, buf, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)
@@ -110,7 +110,7 @@ function calc_multi3d_hα(mesh_file, atmos_file, pops_file, atom_file)
     Threads.@threads for i in 1:atmos.nx
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
-            calc_line_1D!(my_line, buf, atmos[j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
+            calc_line_1D!(my_line, buf, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)

@@ -51,41 +51,110 @@ struct Atmosphere3D{
     proton_density::A
 end
 
-Base.getindex(a::AbstractAtmos1D{3}, i, j) = Atmosphere1D(
-    1,
-    1,
-    a.nz,
-    a.z,
-    a.temperature[:, i, j],
-    a.velocity_z[:, i, j],
-    a.electron_density[:, i, j],
-    a.hydrogen1_density[:, i, j],
-    a.proton_density[:, i, j],
-)
 
-Base.getindex(a::AbstractAtmos1D{2}, i) = Atmosphere1D(
-    1,
-    1,
-    a.nz,
-    a.z,
-    a.temperature[:, i],
-    a.velocity_z[:, i],
-    a.electron_density[:, i],
-    a.hydrogen1_density[:, i],
-    a.proton_density[:, i],
-)
+Base.ndims(a::AbstractAtmos) = ndims(a.temperature)
 
-Base.getindex(a::AbstractAtmos3D, i, j) = Atmosphere1D(
-    1,
-    1,
-    a.nz,
-    a.z,
-    a.temperature[:, i, j],
-    a.velocity_z[:, i, j],
-    a.electron_density[:, i, j],
-    a.hydrogen1_density[: ,i, j],
-    a.proton_density[:, i, j],
-)
+
+Base.size(a::AbstractAtmos) = size(a.temperature)
+
+
+function Base.getindex(a::AbstractAtmos1D, args...)
+    nD = length(args)
+    if nD != ndims(a)
+        throw(ArgumentError("Invalid number of arguments. Expected $(ndims(a)), got $nD."))
+    end
+    indices = to_indices(a.temperature, args)
+    nx = 1
+    ny = 1
+    if nD == 1
+        nz = length(indices[1])
+    elseif nD == 2
+        nz = length(indices[1])
+        ny = length(indices[2])
+    elseif nD == 3
+        nz = length(indices[1])
+        ny = length(indices[2])
+        nx = length(indices[3])
+    end
+    if (nx == 0) | (ny == 0) | (nz == 0)
+        throw(ArgumentError("All slices must have non-zero length"))
+    end
+    if nz == 1  # horizontal slice unsupported because velocities are not available
+        throw(ArgumentError("Unsupported slice of Atmosphere1D with single z value"))
+    end
+    return Atmosphere1D(
+        nx,
+        ny,
+        nz,
+        a.z[indices[1]],
+        a.temperature[indices...],
+        a.velocity_z[indices...],
+        a.electron_density[indices...],
+        a.hydrogen1_density[indices...],
+        a.proton_density[indices...],
+    )
+end
+
+
+function Base.getindex(a::AbstractAtmos3D, i, j, k)
+    iz, iy, ix = to_indices(a.temperature, (i, j, k))
+    nx = length(ix)
+    ny = length(iy)
+    nz = length(iz)
+    if (nx == 0) | (ny == 0) | (nz == 0)
+        throw(ArgumentError("All slices must have non-zero length"))
+    end
+    if (nz > 1) & (ny > 1) & (nx > 1)  # simple slice, return same type
+        return Atmosphere3D(
+            nx,
+            ny,
+            nz,
+            a.x[ix],
+            a.y[iy],
+            a.z[iz],
+            a.temperature[iz, iy, ix],
+            a.velocity_x[iz, iy, ix],
+            a.velocity_y[iz, iy, ix],
+            a.velocity_z[iz, iy, ix],
+            a.electron_density[iz, iy, ix],
+            a.hydrogen1_density[iz, iy, ix],
+            a.proton_density[iz, iy, ix],
+        )
+    else  # reduced dimensionality slice, return Atmosphere1D
+        if length(iz) == 1  # special case of horizontal slice
+            if length(iy) > 1  # first case, swap z for y axis
+                nx = length(ix)
+                ny = length(iz)
+                nz = length(iy)
+                z = a.y[iy]
+                vz = a.velocity_y[iz, iy, ix]
+            elseif length(iy) == 1  # second case, swap z for x axis
+                nx = length(iz)
+                ny = length(iy)
+                nz = length(ix)
+                z = a.x[ix]
+                vz = a.velocity_x[iz, iy, ix]
+            end
+        else
+            nx = length(ix)
+            ny = length(iy)
+            nz = length(iz)
+            z = a.z[iz]
+            vz = a.velocity_z[iz, iy, ix]
+        end
+        return Atmosphere1D(
+            nx,
+            ny,
+            nz,
+            z,
+            a.temperature[iz, iy, ix],
+            vz,
+            a.electron_density[iz, iy, ix],
+            a.hydrogen1_density[iz, iy, ix],
+            a.proton_density[iz, iy, ix],
+        )
+    end
+end
 
 
 abstract type AbstractBroadening{T <: AbstractFloat} end

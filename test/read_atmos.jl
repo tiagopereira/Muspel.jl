@@ -8,16 +8,19 @@
     @testset "RH" begin
         # Atmosphere1D tests
         atm = read_atmos_rh(FALC_RH_file)
-        @test typeof(atm) == Atmosphere1D{3, Float32, Array{Float32, 3}, Vector{Float32}}
-        @test typeof(atm[1,1]) <: Atmosphere1D{1, <:AbstractFloat}
-        @test atm[1,1].temperature == atm.temperature[:, 1, 1]
-        @test atm[1,1].velocity_z == atm.velocity_z[:, 1, 1]
-        @test atm[1,1].electron_density == atm.electron_density[:, 1, 1]
-        @test atm[1,1].hydrogen1_density == atm.hydrogen1_density[:, 1, 1]
-        @test atm[1,1].proton_density == atm.proton_density[:, 1, 1]
-        @test atm[1,1].z == atm.z
-        @test maximum(atm[1,1].temperature) == 1e5
-        @test minimum(atm[1,1].temperature) == 4.5f3
+        @test atm isa Atmosphere1D{3, Float32, Array{Float32, 3}, Vector{Float32}}
+        @test typeof(atm[:, 1, 1]) <: Atmosphere1D{1, <:AbstractFloat}
+        @test typeof(atm[:, :, 1]) <: Atmosphere1D{2, <:AbstractFloat}
+        @test typeof(atm[:, 1, :]) <: Atmosphere1D{2, <:AbstractFloat}
+        @test typeof(atm[1:3, 1:3, 1:3]) <: Atmosphere1D{3, <:AbstractFloat}
+        @test atm[:, 1, 1].temperature == atm.temperature[:, 1, 1]
+        @test atm[:, 1, 1].velocity_z == atm.velocity_z[:, 1, 1]
+        @test atm[:, 1, 1].electron_density == atm.electron_density[:, 1, 1]
+        @test atm[:, 1, 1].hydrogen1_density == atm.hydrogen1_density[:, 1, 1]
+        @test atm[:, 1, 1].proton_density == atm.proton_density[:, 1, 1]
+        @test atm[:, 1, 1].z == atm.z
+        @test maximum(atm[:, 1, 1].temperature) == 1e5
+        @test minimum(atm[:, 1, 1].temperature) == 4.5f3
         # Compare with version with nHtot
         atmH = read_atmos_rh(FALC_RH_nHtot_file)
         @test all(atmH.velocity_z .== atm.velocity_z)
@@ -30,16 +33,15 @@
 
     @testset "Multi3D" begin
         atm = read_atmos_multi3d(FALC_multi3d_mesh, FALC_multi3d)
-        @test typeof(atm) == Atmosphere3D{Float32, Array{Float32, 3}, Vector{Float32}}
-        @test typeof(atm[1,1]) <: Atmosphere1D{1, <:AbstractFloat}
-        @test atm[1,1].temperature == atm.temperature[:, 1, 1]
-        @test atm[1,1].velocity_z == atm.velocity_z[:, 1, 1]
-        @test atm[1,1].electron_density == atm.electron_density[:, 1, 1]
-        @test atm[1,1].hydrogen1_density == atm.hydrogen1_density[:, 1, 1]
-        @test atm[1,1].proton_density == atm.proton_density[:, 1, 1]
-        @test atm[1,1].z == atm.z
-        @test maximum(atm[1,1].temperature) == 1e5
-        @test minimum(atm[1,1].temperature) == 4.5f3
+        @test atm isa Atmosphere3D{Float32, Array{Float32, 3}, Vector{Float32}}
+        @test atm[:, 1, 1].temperature == atm.temperature[:, 1, 1]
+        @test atm[:, 1, 1].velocity_z == atm.velocity_z[:, 1, 1]
+        @test atm[:, 1, 1].electron_density == atm.electron_density[:, 1, 1]
+        @test atm[:, 1, 1].hydrogen1_density == atm.hydrogen1_density[:, 1, 1]
+        @test atm[:, 1, 1].proton_density == atm.proton_density[:, 1, 1]
+        @test atm[:, 1, 1].z == atm.z
+        @test maximum(atm[:, 1, 1].temperature) == 1e5
+        @test minimum(atm[:, 1, 1].temperature) == 4.5f3
         # Compare against FALC in RH format
         atm_RH = read_atmos_rh(FALC_RH_file)
         @test atm.velocity_z == atm_RH.velocity_z
@@ -47,8 +49,8 @@
         @test atm.electron_density ≈ atm_RH.electron_density
         @test atm.velocity_z == atm_RH.velocity_z
         atm_RH = read_atmos_rh(FALC_RH_nHtot_file)
-        @test atm[1,1].proton_density ≈ atm_RH[1,1].proton_density
-        @test atm[1,1].hydrogen1_density ≈ atm_RH[1,1].hydrogen1_density
+        @test atm[:, 1, 1].proton_density ≈ atm_RH[:, 1, 1].proton_density
+        @test atm[:, 1, 1].hydrogen1_density ≈ atm_RH[:, 1, 1].hydrogen1_density
         # Tests of mesh, arrays in single line vs split lines
         z1 = Muspel.read_mesh(FALC_multi3d_mesh)[end]
         z2 = Muspel.read_mesh(FALC_multi3d_mesh2)[end]
