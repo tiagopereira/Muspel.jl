@@ -9,7 +9,9 @@
         n_up::AbstractVector{T},
         n_lo::AbstractVector{T},
         σ_itp::ExtinctionItpNLTE{<:Real},
-        voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2},
+        voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+        to_end::Bool=false,
+        initial_condition=:source
     )
 
 Calculate emerging disk-centre intensity for a given line in a 1D atmosphere.
@@ -21,7 +23,9 @@ function calc_line_1D!(
     n_up::AbstractVector{T},
     n_lo::AbstractVector{T},
     σ_itp::ExtinctionItpNLTE{<:Real},
-    voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2},
+    voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+    to_end::Bool=false,
+    initial_condition=:source
 ) where T <: AbstractFloat
     γ_energy = ustrip((h * c_0 / (4 * π * line.λ0 * u"nm")) |> u"J")
 
@@ -61,7 +65,8 @@ function calc_line_1D!(
             buf.source_function[iz] = j_tmp / α_tmp
             buf.α_total[iz] = α_tmp
         end
-        piecewise_1D_linear!(atm.z, buf.α_total, buf.source_function, buf.int_tmp)
+        piecewise_1D_linear!(atm.z, buf.α_total, buf.source_function, buf.int_tmp;
+                             to_end=to_end, initial_condition=initial_condition)
         buf.intensity[i] = buf.int_tmp[1]
     end
     return nothing
