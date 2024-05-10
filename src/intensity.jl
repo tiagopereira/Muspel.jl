@@ -30,8 +30,10 @@ function calc_line_1D!(
     γ_energy = ustrip((h * c_0 / (4 * π * line.λ0 * u"nm")) |> u"J")
     if to_end  # direction of integration
         end_point = atm.nz
+        vsign = -1
     else
         end_point = 1
+        vsign = 1
     end
     # wavelength-independent part (continuum + broadening + Doppler width)
     for i in 1:atm.nz
@@ -57,7 +59,7 @@ function calc_line_1D!(
         for iz in 1:atm.nz
             # Wavelength-dependent part
             a = damping(buf.γ[iz], λ, buf.ΔλD[iz])  # very small dependence on λ
-            v = (λ - line.λ0 + line.λ0 * atm.velocity_z[iz] / ustrip(c_0)) / buf.ΔλD[iz]
+            v = (λ - line.λ0 + line.λ0 * atm.velocity_z[iz] * vsign / ustrip(c_0)) / buf.ΔλD[iz]
             profile = real(voigt_itp(a, abs(v))) / (sqrt(π) * buf.ΔλD[iz])  # units nm^-1
             # Part that only multiplies by wavelength:
             α_tmp = γ_energy * profile
