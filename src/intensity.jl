@@ -28,7 +28,11 @@ function calc_line_1D!(
     initial_condition=:source
 ) where T <: AbstractFloat
     γ_energy = ustrip((h * c_0 / (4 * π * line.λ0 * u"nm")) |> u"J")
-
+    if to_end  # direction of integration
+        end_point = atm.nz
+    else
+        end_point = 1
+    end
     # wavelength-independent part (continuum + broadening + Doppler width)
     for i in 1:atm.nz
         buf.α_c[i] = α_cont(
@@ -67,7 +71,7 @@ function calc_line_1D!(
         end
         piecewise_1D_linear!(atm.z, buf.α_total, buf.source_function, buf.int_tmp;
                              to_end=to_end, initial_condition=initial_condition)
-        buf.intensity[i] = buf.int_tmp[1]
+        buf.intensity[i] = buf.int_tmp[end_point]
     end
     return nothing
 end

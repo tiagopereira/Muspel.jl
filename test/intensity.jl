@@ -42,7 +42,8 @@ using AtomicData
         voigt_itp = create_voigt_itp(a, v)
         buf = RTBuffer(atm.nz, my_line.nλ, Float32)
 
-        calc_line_1D!(my_line, buf, atm, n_u, n_l, σ_itp, voigt_itp)
+        calc_line_1D!(my_line, buf, atm, n_u, n_l, σ_itp, voigt_itp;
+                      to_end=false, initial_condition=:source)
 
         # Consistency tests
         @test buf.intensity[end] == buf.int_tmp[1]
@@ -80,6 +81,11 @@ using AtomicData
         calc_line_1D!(my_line, buf, atm, n_u * 0, n_u * 0, σ_itp, voigt_itp)  # no line
         @test all(buf.intensity .== buf.intensity[1])
         @test isapprox(buf.intensity[1], 28.538631, rtol=1e-3)
+
+        calc_line_1D!(my_line, buf, atm, n_u, n_l, σ_itp, voigt_itp;
+                      to_end=true, initial_condition=:zero)
+        @test buf.intensity[end] == buf.int_tmp[end]
+        @test isapprox(S_Planck, buf.source_function, rtol=1e-2)  # S = B for continuum
     end
     @testset "calc_τ_cont!" begin
         σ_itp = get_σ_itp(atm, 500f0, empty([""]))
