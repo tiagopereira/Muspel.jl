@@ -61,14 +61,14 @@ using AtomicData
         @test all(buf.ΔλD .< 0.1)
         @test all(buf.γ .>= my_line.γ.natural)
         # Tests for this specific line profile
-        @test argmin(buf.intensity) == my_line.nλ ÷ 2  # no velocity, min at line centre
+        @test argmin(buf.intensity) == my_line.nλ ÷ 2 + 1  # no velocity, min at line centre
         @test buf.intensity[1] > buf.intensity[my_line.nλ ÷ 2 + 1]  # absorption line
-        @test isapprox(buf.intensity[my_line.nλ ÷ 2 + 1], 4.673165, rtol=1e-3)  # line core
-        @test isapprox(buf.intensity[1], 27.279392, rtol=1e-3)   # continuum intensity
-        @test isapprox(buf.intensity[19], 15.642044, rtol=1e-3)  # line wing
+        @test isapprox(buf.intensity[my_line.nλ ÷ 2 + 1], 4.6703334, rtol=1e-3)  # line core
+        @test isapprox(buf.intensity[1], 27.27908, rtol=1e-3)   # continuum intensity
+        @test isapprox(buf.intensity[19], 15.57203, rtol=1e-3)  # line wing
         @test isapprox(  # symmetric line profile
             buf.intensity[1:my_line.nλ ÷ 2],
-            reverse(buf.intensity[my_line.nλ ÷ 2+1:end]),
+            reverse(buf.intensity[my_line.nλ ÷ 2+2:end]),
             rtol=1e-3
         )
         @test all(diff(buf.intensity[1:my_line.nλ ÷ 2]) .< 0)        # smooth decrease

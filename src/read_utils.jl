@@ -175,32 +175,51 @@ function read_line(line::Dict, χ, g, stage, level_ids, label, mass)
 end
 
 
-
 """
 Calculate line wavelengths using recipe from RH.
 """
 function calc_λline_RH(λ0::Unitful.Length{T}, nλ, qcore::T, qwing::T, vξ::Unitful.Velocity{T};
                        asymm=true) where T <: Real
     q_to_λ = convert(typeof(λ0), (λ0 * vξ / c_0))
-    nhalf = nλ ÷ 2
     if !asymm
-        nhalf *= 2
+        if isodd(nλ)
+            nλ = nλ
+        else
+            nλ = nλ + 1
+        end
+    else
+        if isodd(nλ)
+            nλ = nλ ÷ 2
+        else
+            nλ = (nλ + 1) ÷ 2
+        end
     end
     if qwing <= 2 * qcore
         β = one(T)
     else
         β = qwing / (2 * qcore)
     end
-    y = β + sqrt(β * β + (β - 1) * nhalf + 2 - 3 * β)
-    b = 2 * log(y) / (nhalf - 1)
-    a = qwing / (nhalf - 2 + y*y)
-    Δλ = a * ((1:nhalf) .+ exp.(b * ((1:nhalf) .- 1))) .* q_to_λ
-    if asymm
-        λ = vcat(reverse(λ0 .- Δλ), λ0 .+ Δλ)
-    else
-        λ = λ0 .+ Δλ
+    y = β + sqrt(β * β + (β - 1) * nλ + 2 - 3 * β)
+    b = 2 * log(y) / (nλ - 1)
+    a = qwing / (nλ - 2 + y*y)
+    q = zeros(T, nλ)
+    for i in 1:nλ
+        la = i - 1
+        q[i] = a * (la + (exp(b * la) - one(T)))
     end
-    return λ
+    if asymm
+        λ = Vector{typeof(λ0)}(undef, 2*nλ - 1)
+        nmid = nλ
+        λ[nmid] = λ0
+        for i in 1:nλ-1
+            Δλ = q_to_λ * q[i+1]
+            λ[nmid - i] = λ0 - Δλ
+            λ[nmid + i] = λ0 + Δλ
+        end
+    else
+        λ = λ0 .+ q_to_λ .* q
+    end
+    return sort(λ)
 end
 
 

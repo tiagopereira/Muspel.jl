@@ -157,16 +157,15 @@ import PhysicalConstants.CODATA2018: h, c_0
         # Else when type = RH:
         dline = data["radiative_bound_bound"][3]
         line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
-        @test line.nλ == 4
-        @test all(line.λ .≈ [395.29880147724504, 397.286622522245,
-                              397.2917203373264, 399.2795413823264])
+        @test line.nλ == 3
+        @test all(line.λ .≈ [395.30135038478574, 397.2891714297857, 399.2769924747857])
         @test line.PRD == false
         @test line.Voigt == false
         dline = data["radiative_bound_bound"][2]
         line = Muspel.read_line(dline, χ, g, stage, level_ids, label, mass)
-        @test line.nλ == 4
-        @test all(line.λ .≈ [397.2915988552346, 397.30589962705903,
-                        397.46131378793945, 399.2794199002346])
+        @test line.nλ == 5
+        @test all(line.λ .≈ [397.2891714297857, 397.2967561915923,
+              397.3388669559107, 397.6017945043258, 399.2769924747857])
         @test line.PRD == true
         @test line.Voigt == true
         # Else when type = MULTI:
@@ -196,28 +195,25 @@ import PhysicalConstants.CODATA2018: h, c_0
         vξ = 2.5u"km/s"
         # Symm/asymm:
         wav = Muspel.calc_λline_RH(λ0, 5, qcore, qwing, vξ) # Does not include λ0
-        @test all(
-            ustrip(wav) .≈ [497.4950614115939, 499.99679212558004,
-                            500.00320787441996, 502.5049385884061]
-        )
+        @test all(ustrip(wav) .≈ [497.49826928601385, 500.0, 502.50173071398615])
         @test all(unit.(wav) .== u"nm")
         wav = Muspel.calc_λline_RH(λ0, nλ, qcore, qwing, vξ; asymm=false)
         @test all(
-            ustrip(wav) .≈ [500.0030549856672, 500.02105292375967,
-                            500.2166461742894, 502.5047856996533]
+            ustrip(wav) .≈ [500.0, 500.00954564376786, 500.06254326784966,
+                            500.39344524973467, 502.50173071398615]
         )
         @test all(unit.(wav) .== u"nm")
         # qwing <= 2 * qcore:
         wav = Muspel.calc_λline_RH(λ0, nλ, qcore, 20.0, vξ; asymm=false)
         @test all(
-            ustrip(wav) .≈ [500.05559401586635, 500.08339102379955,
-                            500.1111880317327, 500.1389850396659]
+            ustrip(wav) .≈ [500.0, 500.0208477559499, 500.0416955118998,
+                            500.06254326784966, 500.08339102379955]
         )
         # Units:
         wav = Muspel.calc_λline_RH(100.0u"Å", nλ, qcore, qwing, vξ; asymm=false)
         @test all(
-            ustrip(wav) .≈ [100.00061099713344, 100.00421058475195,
-                            100.04332923485788, 100.50095713993066]
+            ustrip(wav) .≈ [100.0, 100.00190912875358, 100.01250865356992,
+                            100.07868904994693, 100.50034614279723]
         )
         @test all(unit.(wav) .== u"Å")
         # Single precision:
@@ -225,10 +221,7 @@ import PhysicalConstants.CODATA2018: h, c_0
         wav = Muspel.calc_λline_RH(1f2u"Å", nλ, convert(Float32, qcore),
                                    convert(Float32, qwing), 2.5f3u"m/s"; asymm=false)
         @test eltype(ustrip(wav)) == Float32
-        @test all(
-            ustrip(wav) .≈ [100.00061099713344, 100.00421058475195,
-                            100.04332923485788, 100.50095713993066]
-        )
+        @test all(ustrip(wav) .≈ [100.0, 100.00191, 100.01251, 100.07869, 100.50034])
     end
     @testset "calc_λline_MULTI" begin
         # Wavelength values tested against previous implementation:
