@@ -182,9 +182,7 @@ function calc_λline_RH(λ0::Unitful.Length{T}, nλ, qcore::T, qwing::T, vξ::Un
                        asymm=true) where T <: Real
     q_to_λ = convert(typeof(λ0), (λ0 * vξ / c_0))
     if !asymm
-        if isodd(nλ)
-            nλ = nλ
-        else
+        if iseven(nλ)
             nλ = nλ + 1
         end
     else

@@ -235,6 +235,7 @@ struct RTBuffer{T <: AbstractFloat}
     ndep::Int
     nλ::Int
     intensity::Vector{T}
+    τ_one_height::Vector{T}
     source_function::Vector{T}
     α_total::Vector{T}
     α_c::Vector{T}
@@ -245,6 +246,7 @@ struct RTBuffer{T <: AbstractFloat}
     function RTBuffer(ndep, nλ, f_type)
         T = f_type
         intensity = Vector{T}(undef, nλ)
+        τ_one_height = Vector{T}(undef, nλ)
         source_function = Vector{T}(undef, ndep)
         α_total = Vector{T}(undef, ndep)
         α_c = Vector{T}(undef, ndep)
@@ -252,7 +254,19 @@ struct RTBuffer{T <: AbstractFloat}
         ΔλD = Vector{T}(undef, ndep)
         γ = Vector{T}(undef, ndep)
         int_tmp = Vector{T}(undef, ndep)
-        new{T}(ndep, nλ, intensity, source_function, α_total, α_c, j_c, ΔλD, γ, int_tmp)
+        new{T}(
+            ndep,
+            nλ,
+            intensity,
+            τ_one_height,
+            source_function,
+            α_total,
+            α_c,
+            j_c,
+            ΔλD,
+            γ,
+            int_tmp
+        )
     end
 end
 

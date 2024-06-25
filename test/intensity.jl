@@ -43,7 +43,7 @@ using AtomicData
         buf = RTBuffer(atm.nz, my_line.nλ, Float32)
 
         calc_line_1D!(my_line, buf, atm, n_u, n_l, σ_itp, voigt_itp;
-                      to_end=false, initial_condition=:source)
+                      to_end=false, initial_condition=:source, calc_τ_one=true)
 
         # Consistency tests
         @test buf.intensity[end] == buf.int_tmp[1]
@@ -105,5 +105,18 @@ using AtomicData
         rev_atm.z[:] = reverse(atm.z)
         calc_τ_cont!(rev_atm, tau2, σ_itp)
         @test tau1[end] ≈ tau2[end]
+    end
+    @testset "calc_τ_one_height" begin
+        nz = 20
+        aa = ones(nz) * 0.1
+        zz = 1.0:nz
+        @test calc_τ_one_height(zz, aa) ≈ 11
+        # Edge cases
+        aa *= 0
+        @test calc_τ_one_height(zz, aa) == nz
+        aa .+= 1
+        @test calc_τ_one_height(zz, aa) == 0
+        @test calc_τ_one_height(1f0:nz, ones(Float32, nz)) isa Float32
+        @test calc_τ_one_height(1.0:nz, ones(Float64, nz)) isa Float64
     end
 end

@@ -13,7 +13,7 @@ export read_atmos_rh, read_atmos_hpops_rh, read_pops_rh
 export read_atmos_hpops_multi3d, read_atmos_multi3d, read_pops_multi3d
 export doppler_width, damping, calc_broadening, create_voigt_itp
 export blackbody_λ
-export calc_line_1D!, calc_τ_cont!
+export calc_line_1D!, calc_τ_cont!, calc_τ_one_height
 export incline_atmos, incline_data!, incline_data_inv!, project_vector!
 export g_eff, g_LS, g_jj, g_JK, zeeman_strength, get_zeeman_components
 

@@ -25,7 +25,8 @@ function calc_line_1D!(
     σ_itp::ExtinctionItpNLTE{<:Real},
     voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
     to_end::Bool=false,
-    initial_condition=:source
+    initial_condition=:source,
+    calc_τ_one::Bool=false,
 ) where T <: AbstractFloat
     γ_energy = ustrip((h * c_0 / (4 * π * line.λ0 * u"nm")) |> u"J")
     if to_end  # direction of integration
@@ -74,6 +75,9 @@ function calc_line_1D!(
         piecewise_1D_linear!(atm.z, buf.α_total, buf.source_function, buf.int_tmp;
                              to_end=to_end, initial_condition=initial_condition)
         buf.intensity[i] = buf.int_tmp[end_point]
+        if calc_τ_one & !to_end
+            buf.τ_one_height[i] = calc_τ_one_height(atm.z, buf.α_total)
+        end
     end
     return nothing
 end
@@ -109,4 +113,33 @@ function calc_τ_cont!(
         α = α_next
     end
     return nothing
+end
+
+"""
+Calculate height where τ=1 using linear interpolation
+"""
+function calc_τ_one_height(
+    height::AbstractVector{<:Real},
+    α::AbstractVector{T},
+) where T <: Real
+    nz = length(height)
+    @assert length(α) == nz "Height and extinction have different sizes"
+    τ_prev = zero(T)
+    τ_curr = zero(T)
+    τ_one = zero(T)
+    for i in 2:nz
+        # Manually integrate optical depth
+        tmp = abs(height[i-1] - height[i])
+        τ_prev = τ_curr
+        τ_curr = τ_prev + tmp * (α[i] + α[i-1]) / 2
+        # Limit cases, reached at top or not at all
+        if ((τ_curr > 1) & (i == 2)) | ((τ_curr < 1) & (i == nz))
+            τ_one = height[i]
+        elseif (τ_curr > 1) & (τ_prev < 1)
+            # Manual interpolation
+            τ_one = height[i-1] + (1 - τ_prev) / (τ_curr - τ_prev) * tmp
+            break
+        end
+    end
+    return τ_one
 end
