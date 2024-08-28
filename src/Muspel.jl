@@ -8,7 +8,8 @@ export read_atom
 export saha_boltzmann, saha_boltzmann!
 export AbstractExtinctionItp, ExtinctionItpLTE, ExtinctionItpNLTE
 export α_cont, α_cont_no_itp, get_σ_itp
-export piecewise_1D_nn, piecewise_1D_linear, piecewise_1D_linear!, feautrier
+export piecewise_1D_nn, piecewise_1D_linear, piecewise_1D_linear!, piecewise_1D_bezier3!,
+       feautrier
 export read_atmos_rh, read_atmos_hpops_rh, read_pops_rh
 export read_atmos_hpops_multi3d, read_atmos_multi3d, read_pops_multi3d
 export doppler_width, damping, calc_broadening, create_voigt_itp
