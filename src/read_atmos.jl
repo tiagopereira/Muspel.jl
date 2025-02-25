@@ -11,16 +11,28 @@ using DelimitedFiles
 """
 Reads RH atmosphere. Returns always in single precision.
 """
-function read_atmos_rh(atmos_file; index=1)
-    temperature = h5read(atmos_file, "temperature", (:, :, :, index))
-    electron_density = h5read(atmos_file, "electron_density", (:, :, :, index))
-    hydrogen_density = h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
-    vz = h5read(atmos_file, "velocity_z", (:, :, :, index))
-    z = h5read(atmos_file, "z", (:, index))
-    x = h5read(atmos_file, "x")
-    y = h5read(atmos_file, "y")
+function read_atmos_rh(atmos_file)
+    h5F32 = HDF5.datatype(Float32)
+    fid = h5open(atmos_file)
+    nz, ny, nx, nhydr, nt = size(fid["hydrogen_populations"])
+    @assert nt == 1 "RH atmospheres with multiple timesteps are not supported"
 
-    nz, ny, nx, nhydr = size(hydrogen_density)
+    z = Vector{Float32}(undef, nz)
+    y = Vector{Float32}(undef, ny)
+    x = Vector{Float32}(undef, nx)
+    temperature = Array{Float32}(undef, nz, ny, nx)
+    electron_density = Array{Float32}(undef, nz, ny, nx)
+    hydrogen_density = Array{Float32}(undef, nz, ny, nx, nhydr)
+    vz = Array{Float32}(undef, nz, ny, nx)
+    HDF5.generic_read!(z, getindex(fid, "z"), h5F32, Float32)
+    HDF5.generic_read!(y, getindex(fid, "y"), h5F32, Float32)
+    HDF5.generic_read!(x, getindex(fid, "x"), h5F32, Float32)
+    HDF5.generic_read!(temperature, getindex(fid, "temperature"), h5F32, Float32)
+    HDF5.generic_read!(electron_density, getindex(fid, "electron_density"), h5F32, Float32)
+    HDF5.generic_read!(hydrogen_density, getindex(fid, "hydrogen_populations"), h5F32, Float32)
+    HDF5.generic_read!(vz, getindex(fid, "velocity_z"), h5F32, Float32)
+    close(fid)
+
     # must define proton_density
     if nhydr == 1
         hydrogen1_density = hydrogen_density[:, :, :, 1]
@@ -44,14 +56,77 @@ function read_atmos_rh(atmos_file; index=1)
         nx,
         ny,
         nz,
-        Float32.(z),
+        z,
         temperature,
         vz,
-        Float32.(electron_density),
+        electron_density,
         hydrogen1_density,
-        proton_density
+        proton_density,
     )
 end
+
+
+"""
+Reads RH atmosphere. Returns always in single precision.
+Slightly slower version that supports selecting timestep.
+"""
+function read_atmos_rh_index(atmos_file; index=1)
+    fid = h5open(atmos_file)
+    nz, ny, nx, nhydr, _ = size(fid["hydrogen_populations"])
+    close(fid)
+
+    z = Vector{Float32}(undef, nz)
+    y = Vector{Float32}(undef, ny)
+    x = Vector{Float32}(undef, nx)
+
+    z .= h5read(atmos_file, "z", (:, index))
+    y .= h5read(atmos_file, "y")
+    x .= h5read(atmos_file, "x")
+
+    temperature = Array{Float32}(undef, nz, ny, nx)
+    electron_density = Array{Float32}(undef, nz, ny, nx)
+    hydrogen_density = Array{Float32}(undef, nz, ny, nx, nhydr)
+    vz = Array{Float32}(undef, nz, ny, nx)
+
+    temperature .= h5read(atmos_file, "temperature", (:, :, :, index))
+    electron_density .= h5read(atmos_file, "electron_density", (:, :, :, index))
+    hydrogen_density .= h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
+    vz .= h5read(atmos_file, "velocity_z", (:, :, :, index))
+
+    # must define proton_density
+    if nhydr == 1
+        hydrogen1_density = hydrogen_density[:, :, :, 1]
+        proton_density = similar(hydrogen1_density)
+        Threads.@threads for i in eachindex(temperature)
+            ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
+            proton_density[i] = hydrogen1_density[i] * ionfrac
+            hydrogen1_density[i] *= (1 - ionfrac)
+        end
+    elseif nhydr == 2
+        hydrogen1_density = hydrogen_density[:, :, :, 1]
+        proton_density = hydrogen_density[:, :, :, 2]
+    elseif nhydr > 2
+        proton_density = hydrogen_density[:, :, :, end]
+        hydrogen1_density = dropdims(
+            sum(view(hydrogen_density, :, :, :, 1:nhydr-1), dims=4);
+            dims=4
+        )
+    end
+    return Atmosphere1D(
+        nx,
+        ny,
+        nz,
+        z,
+        temperature,
+        vz,
+        electron_density,
+        hydrogen1_density,
+        proton_density,
+    )
+end
+
+
+
 
 
 """

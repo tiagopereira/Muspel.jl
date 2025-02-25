@@ -21,6 +21,9 @@
         @test atm[:, 1, 1].z == atm.z
         @test maximum(atm[:, 1, 1].temperature) == 1e5
         @test minimum(atm[:, 1, 1].temperature) == 4.5f3
+        # Compare function reading with index
+        atm2 = read_atmos_rh_index(FALC_RH_file; index=1)
+        @test all(atm.temperature .== atm2.temperature)
         # Compare with version with nHtot
         atmH = read_atmos_rh(FALC_RH_nHtot_file)
         @test all(atmH.velocity_z .== atm.velocity_z)
