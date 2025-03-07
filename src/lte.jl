@@ -155,3 +155,34 @@ function h_ionfrac_saha(temp::T, electron_density::Real)::T where T <: Real
     saha = (temp / saha_const_u) ^ (3/2) / electron_density * exp(-Hχ∞ / (k_B_u * temp))
     return 1 - (1 / (1 + saha))
 end
+
+
+"""
+    function create_nstar_itp(
+        level::Int,
+        atom::AtomicModel,
+        temp::V,
+        ne::V
+    ) where V <: AbstractVector{<: Real}
+
+Create interpolant for level populations in LTE. `level` is the index of
+the required level in the `AtomicModel`. `temp` and `ne` are
+temperature (K) and electron density (m^-3) grids . Performance is better
+if they are given as a range instead of vectors.
+
+The interpolant gives n_l / N, where N is the number density of the element.
+To convert to absolute number density, multiply by the abundance and hydrogen density.
+"""
+function create_nstar_itp(
+    level::Int, atom::AtomicModel, temp::AbstractVector{T}, ne::AbstractVector{T}
+    ) where T <: AbstractFloat
+    nT = length(temp)
+    nNe = length(ne)
+    table = Array{T}(undef, nT, nNe)
+    pops = Vector{T}(undef, atom.nlevels)
+    for j in 1:nNe, i in 1:nT
+        saha_boltzmann!(atom, temp[i], ne[j], one(T), pops)
+        table[i, j] = pops[level]
+    end
+    return linear_interpolation((temp, ne), table, extrapolation_bc=Flat())
+end

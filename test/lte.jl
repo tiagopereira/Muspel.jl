@@ -63,4 +63,23 @@
     @test Muspel.h_ionfrac_saha(9500f0, 1f22) ≈ 0.013475458
     @test isa(Muspel.h_ionfrac_saha(9500f0, 1f22), Float32)
     @test isa(Muspel.h_ionfrac_saha(9500., 1e22), Float64)
+    # Test `create_nstar_itp` against hydrogen ionisation
+    temp = [6e3, 1e4, 1e6]
+    ne = [1e15, 1e17, 1e20]
+    nstar_itp = create_nstar_itp(6, H_empty, temp, ne)
+    temp_stack = repeat(temp, outer=[1, 3])
+    ne_stack = repeat(ne', outer=[3, 1])
+    @test isapprox(
+        nstar_itp.(temp_stack, ne_stack),
+        Muspel.h_ionfrac_saha.(temp_stack, ne_stack),
+        rtol=1e-4
+    )
+    # a few tests of other levels
+    nstar_itp = create_nstar_itp(2, H_empty, temp, ne)
+    @test nstar_itp(temp[2], ne[3]) ≈ saha_boltzmann(H_empty, temp[2], ne[3], 1)[2]
+    nstar_itp = create_nstar_itp(5, H_empty, temp, ne)
+    @test nstar_itp(temp[3], ne[3]) ≈ saha_boltzmann(H_empty, temp[3], ne[3], 1)[5]
+    # Test edges
+    @test nstar_itp(1e3, ne[1]) == nstar_itp(temp[1], ne[1])
+    @test nstar_itp(1e7, ne[3]) == nstar_itp(temp[3], ne[3])
 end
