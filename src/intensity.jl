@@ -1,4 +1,7 @@
 # Functions to calculate intensity and related quantities
+const HC_K = ustrip((h * c_0 / k_B) |> u"K * nm")
+const αCONST = ustrip((e^2 / (4*ε_0*m_e*c_0^2)) |> u"nm") / sqrt(π)
+const INV_M3_to_NM3 = Float32(ustrip(1u"m^-3" |> u"nm^-3"))
 
 
 """
@@ -76,8 +79,89 @@ function calc_line_1D!(
                              to_end=to_end, initial_condition=initial_condition)
         buf.intensity[i] = buf.int_tmp[end_point]
         if calc_τ_one & !to_end
-            buf.τ_one_height[i] = calc_τ_one_height(atm.z, buf.α_total)
+            buf.τ_one_height[i] = calc_τ_one_height2(atm.z, buf.α_total)
         end
+    end
+    return nothing
+end
+
+
+
+"""
+    function calc_LTE_line_1D!(
+        line::AtomicLine,
+        buf::RTBuffer{T},
+        atm::Atmosphere1D{T},
+        nl_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+        σ_itp::ExtinctionItpNLTE{<:Real},
+        voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+        to_end::Bool=false,
+        initial_condition=:source
+    )
+
+Calculate emerging disk-centre intensity for a given line in a 1D atmosphere.
+Using simplifications for the LTE case.
+"""
+function calc_LTE_line_1D!(
+    line::AtomicLine,
+    buf::RTBufferLTE{T},
+    atm::Atmosphere1D{1, T},
+    abundance::Real,
+    nl_itp::Interpolations.AbstractInterpolation{<:Number, 2},
+    σ_itp::ExtinctionItpNLTE{<:Real},
+    voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+    to_end::Bool=false,
+    initial_condition=:source,
+) where T <: AbstractFloat
+    if to_end  # direction of integration
+        end_point = atm.nz
+        vsign = -1
+    else
+        end_point = 1
+        vsign = 1
+    end
+    # wavelength-independent part (continuum + broadening + Doppler width)
+    for i in 1:atm.nz
+        buf.α_c[i] = α_cont(
+            σ_itp,
+            atm.temperature[i],
+            atm.electron_density[i],
+            atm.hydrogen1_density[i],
+            atm.proton_density[i]
+        )
+        buf.source_function[i] = blackbody_λ(line.λ0, atm.temperature[i])
+        buf.γ[i] = calc_broadening(
+            line.γ,
+            atm.temperature[i],
+            atm.electron_density[i],
+            atm.hydrogen1_density[i]
+        )
+        buf.ΔλD[i] = doppler_width(line.λ0, line.mass, atm.temperature[i])
+        # units: nm^-3
+        n_l = nl_itp(
+                atm.temperature[i],
+                atm.electron_density[i]
+            ) * abundance * ((atm.hydrogen1_density[i]+atm.proton_density[i]) * INV_M3_to_NM3)
+        # units: nm^-1
+        buf.α_l[i] = (
+            αCONST * n_l * line.f_value * line.λ0^2 / buf.ΔλD[i] *
+            (1 - exp(-HC_K / (atm.temperature[i]*line.λ0)))
+        )
+    end
+
+    # Calculate line opacity and intensity
+    for (i, λ) in enumerate(line.λ)
+        for iz in 1:atm.nz
+            # Wavelength-dependent part
+            a = damping(buf.γ[iz], λ, buf.ΔλD[iz])  # very small dependence on λ
+            v = (λ - line.λ0 + line.λ0 * atm.velocity_z[iz] * vsign / ustrip(c_0)) / buf.ΔλD[iz]
+            profile = real(voigt_itp(a, abs(v)))
+            # convert α_l from nm^-1 to m^-1
+            buf.α_total[iz] = buf.α_c[iz] + buf.α_l[iz] * profile * 1f9
+        end
+        piecewise_1D_linear!(atm.z, buf.α_total, buf.source_function, buf.int_tmp;
+                             to_end=to_end, initial_condition=initial_condition)
+        buf.intensity[i] = buf.int_tmp[end_point]
     end
     return nothing
 end
@@ -142,4 +226,22 @@ function calc_τ_one_height(
         end
     end
     return τ_one
+end
+
+
+"""
+Calculate height where τ=1. Using higher order.
+"""
+function calc_τ_one_height2(
+    height::AbstractVector{<:Real},
+    α::AbstractVector{T},
+) where T <: Real
+    nz = length(height)
+    @assert length(α) == nz "Height and extinction have different sizes"
+    τ = zeros(T, nz)
+    for i in 2:nz # Manually integrate optical depth
+        τ[i] = τ[i-1] + abs(height[i-1] - height[i]) * (α[i] + α[i-1]) / 2
+    end
+    itp = extrapolate(interpolate(τ, height, FritschCarlsonMonotonicInterpolation()), Flat())
+    return itp(one(T))
 end

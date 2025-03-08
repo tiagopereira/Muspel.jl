@@ -271,6 +271,43 @@ struct RTBuffer{T <: AbstractFloat}
 end
 
 
+struct RTBufferLTE{T <: AbstractFloat}
+    ndep::Int
+    nλ::Int
+    intensity::Vector{T}
+    source_function::Vector{T}
+    α_total::Vector{T}
+    α_l::Vector{T}
+    α_c::Vector{T}
+    ΔλD::Vector{T}
+    γ::Vector{T}
+    int_tmp::Vector{T}
+    function RTBufferLTE(ndep, nλ, f_type)
+        T = f_type
+        intensity = Vector{T}(undef, nλ)
+        source_function = Vector{T}(undef, ndep)
+        α_total = Vector{T}(undef, ndep)
+        α_l = Vector{T}(undef, ndep)
+        α_c = Vector{T}(undef, ndep)
+        ΔλD = Vector{T}(undef, ndep)
+        γ = Vector{T}(undef, ndep)
+        int_tmp = Vector{T}(undef, ndep)
+        new{T}(
+            ndep,
+            nλ,
+            intensity,
+            source_function,
+            α_total,
+            α_l,
+            α_c,
+            ΔλD,
+            γ,
+            int_tmp
+        )
+    end
+end
+
+
 struct RTBufferStokes{T <: AbstractFloat}
     ndep::Int
     nλ::Int
