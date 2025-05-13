@@ -230,5 +230,5 @@ function Base.show(
         println(io, " ⩘ λ (nm):")
         λ = round.([a.λedge for a in v], sigdigits=6)
     end
-    Base.print_range(io, λ)
+    Base.print_matrix(io, λ')
 end
