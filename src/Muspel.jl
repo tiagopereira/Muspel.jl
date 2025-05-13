@@ -41,5 +41,6 @@ include("utils.jl")
 include("intensity.jl")
 include("incline.jl")
 include("zeeman.jl")
+include("show.jl")
 
 end
