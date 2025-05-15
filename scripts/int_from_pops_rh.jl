@@ -43,13 +43,78 @@ function calc_rh_8542(atmos_file, aux_file, atom_file)
     v = LinRange(0f0, 5f2, 2500)
     voigt_itp = create_voigt_itp(a, v)
 
-    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.nx, atmos.ny)
+    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.ny, atmos.nx)
     p = ProgressMeter.Progress(atmos.nx)
 
     Threads.@threads for i in 1:atmos.nx
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
-            calc_line_1D!(my_line, buf, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
+            calc_line_prep!(my_line, buf, atmos[:, j, i], σ_itp)
+            calc_line_1D!(my_line, buf, line.λ, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp)
+            intensity[:, j, i] = buf.intensity
+        end
+        ProgressMeter.next!(p)
+    end
+
+    return intensity
+end
+
+
+"""
+Similar to `calc_rh_8542`, but includes several isotopes of Ca.
+"""
+function calc_rh_8542_isotopes(atmos_file, aux_file, atom_file)
+    ca = read_atom(atom_file)
+    my_line = ca.lines[5]  # Assumes CaII_PRD.yaml, index 5 for 854.2
+
+    atmos = read_atmos_rh(atmos_file)
+    ca_pops = read_pops_rh(aux_file, "CA")
+    n_u = ca_pops[:, :, :, 5]
+    n_l = ca_pops[:, :, :, 3]
+
+    # Continuum opacity structures
+    bckgr_atoms = [
+        "Al.yaml",
+        "C.yaml",
+        "Ca.yaml",
+        "Fe.yaml",
+        "H_6.yaml",
+        "He.yaml",
+        "KI.yaml",
+        "Mg.yaml",
+        "N.yaml",
+        "Na.yaml",
+        "NiI.yaml",
+        "O.yaml",
+        "S.yaml",
+        "Si.yaml",
+    ]
+    atom_files = [joinpath(AtomicData.get_atom_dir(), a) for a in bckgr_atoms]
+    σ_itp = get_σ_itp(atmos, my_line.λ0, atom_files)
+
+    a = LinRange(1f-4, 1f1, 20000)
+    v = LinRange(0f0, 5f2, 2500)
+    voigt_itp = create_voigt_itp(a, v)
+
+    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.ny, atmos.nx)
+    p = ProgressMeter.Progress(atmos.nx)
+
+    # Ca isotope data, according to 2014ApJ...784L..17L
+    ca_abund = 10 .^ [6.33, 4.15, 3.47, 4.66, 1.94, 3.61]
+    tot = sum(ca_abund)
+    ca_fraction = ca_abund / tot
+    ca_weight = ustrip(([40, 42, 43, 44, 46, 48] .* m_u) .|> u"kg")
+    ca_diff = [854.20857, 854.21426, 854.21696, 854.21952, 854.22433, 854.22871] .- 854.20857
+
+    Threads.@threads for i in 1:atmos.nx
+        buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
+        for j in 1:atmos.ny
+            calc_line_prep!(my_line, buf, atmos[:, j, i], σ_itp)
+            calc_line_1D_isotopes!(
+                my_line, buf, my_line.λ,
+                atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp,
+                ca_fraction, ca_weight, ca_diff,
+                )
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)
@@ -101,13 +166,14 @@ function calc_rh_hα(atmos_file, aux_file, atom_file)
     v = LinRange(0f0, 5f2, 5000)
     voigt_itp = create_voigt_itp(a, v)
 
-    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.nx, atmos.ny)
+    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.ny, atmos.nx)
     p = ProgressMeter.Progress(atmos.nx)
 
     Threads.@threads for i in 1:atmos.nx
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
-            calc_line_1D!(my_line, buf, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
+            calc_line_prep!(my_line, buf, atmos[:, j, i], σ_itp)
+            calc_line_1D!(my_line, buf, line.λ, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp)
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)

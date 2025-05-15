@@ -41,8 +41,8 @@ using AtomicData
         v = LinRange(0f2, 5f2, 2500)
         voigt_itp = create_voigt_itp(a, v)
         buf = RTBuffer(atm.nz, my_line.nλ, Float32)
-
-        calc_line_1D!(my_line, buf, atm, n_u, n_l, σ_itp, voigt_itp;
+        calc_line_prep!(my_line, buf, atm, σ_itp)
+        calc_line_1D!(my_line, buf, my_line.λ, atm, n_u, n_l, voigt_itp;
                       to_end=false, initial_condition=:source, calc_τ_one=true)
 
         # Consistency tests
@@ -75,17 +75,26 @@ using AtomicData
         @test all(diff(buf.intensity[my_line.nλ ÷ 2 + 2:end]) .> 0)  # smooth increase
 
         # now calculate extreme cases
-        calc_line_1D!(my_line, buf, atm, n_u, n_u, σ_itp, voigt_itp) # emission line
+        calc_line_1D!(my_line, buf, my_line.λ, atm, n_u, n_u, voigt_itp) # emission line
         @test buf.intensity[1] < buf.intensity[my_line.nλ ÷ 2 + 1]
 
-        calc_line_1D!(my_line, buf, atm, n_u * 0, n_u * 0, σ_itp, voigt_itp)  # no line
+        calc_line_1D!(my_line, buf, my_line.λ, atm, n_u * 0, n_u * 0, voigt_itp)  # no line
         @test all(buf.intensity .== buf.intensity[1])
         @test isapprox(buf.intensity[1], 28.538631, rtol=1e-3)
 
-        calc_line_1D!(my_line, buf, atm, n_u, n_l, σ_itp, voigt_itp;
+        calc_line_1D!(my_line, buf ,my_line.λ, atm, n_u, n_l, voigt_itp;
                       to_end=true, initial_condition=:zero)
         @test buf.intensity[end] == buf.int_tmp[end]
         @test isapprox(S_Planck, buf.source_function, rtol=1e-2)  # S = B for continuum
+
+        # Test isotopes
+        iso_fraction = [0.5, 0.5]
+        iso_weight = [my_line.mass, my_line.mass]
+        iso_Δλ = [-0.1, 0.1]
+        calc_line_1D_isotopes!(my_line, buf, my_line.λ, atm, n_u, n_l, voigt_itp,
+                              iso_fraction, iso_weight, iso_Δλ)
+        @test buf.intensity[85] ≈ buf.intensity[argmin(buf.intensity)]
+        @test buf.intensity[99÷2] > minimum(buf.intensity)
     end
     @testset "calc_τ_cont!" begin
         σ_itp = get_σ_itp(atm, 500f0, empty([""]))

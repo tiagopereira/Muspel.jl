@@ -45,13 +45,14 @@ function calc_multi3d_8542(mesh_file, atmos_file, pops_file, atom_file)
     v = LinRange(0f0, 5f2, 2500)
     voigt_itp = create_voigt_itp(a, v)
 
-    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.nx, atmos.ny)
+    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.ny, atmos.nx)
     p = ProgressMeter.Progress(atmos.nx)
 
     Threads.@threads for i in 1:atmos.nx
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
-            calc_line_1D!(my_line, buf, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
+            calc_line_prep!(my_line, buf, atmos[:, j, i], σ_itp)
+            calc_line_1D!(my_line, buf, line.λ, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp)
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)
@@ -104,13 +105,14 @@ function calc_multi3d_hα(mesh_file, atmos_file, pops_file, atom_file)
     v = LinRange(0f2, 5f2, 2500)
     voigt_itp = create_voigt_itp(a, v)
 
-    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.nx, atmos.ny)
+    intensity = Array{Float32, 3}(undef, my_line.nλ, atmos.ny, atmos.nx)
     p = ProgressMeter.Progress(atmos.nx)
 
     Threads.@threads for i in 1:atmos.nx
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
-            calc_line_1D!(my_line, buf, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], σ_itp, voigt_itp)
+            calc_line_prep!(my_line, buf, atmos[:, j, i], σ_itp)
+            calc_line_1D!(my_line, buf, line.λ, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp)
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)
