@@ -4,60 +4,6 @@ Tools for computing the formal solution of the radiative transfer equation.
 
 
 """
-    piecewise_1D_nn(
-        z::AbstractVector{T},
-        α::AbstractVector{T},
-        source_function::AbstractVector{T};
-        to_end::Bool=false,
-        initial_condition=:source
-    ) where T <: AbstractFloat
-
-Compute piecewise integration of the radiative transfer equation,
-assuming nearest-neighbour integration of the source function, for a given
-height `z`, extinction `α` and `source_function`. The optional
-keyword argument `to_end` defines the direction of the integration:
-if `false` (default) will start to integrate intensity from the last
-element to the first, and if `true` will integrate from the first
-element to the last. `initial_condition` can take two values: `:zero` for
-no radiation, or `:source` (default) to take the source function at the
-starting point.
-"""
-function piecewise_1D_nn(
-    z::AbstractVector{T},
-    α::AbstractVector{T},
-    source_function::AbstractVector{T};
-    to_end::Bool=false,
-    initial_condition=:source
-) where T <: AbstractFloat
-    ndep = length(z)
-    if to_end
-        start = 1
-        incr = 1
-        depth_range = 2:ndep
-    else
-        start = ndep
-        incr = -1
-        depth_range = ndep-1:-1:1
-    end
-    intensity = similar(source_function)
-    if initial_condition == :source
-        intensity[start] = source_function[start]
-    elseif initial_condition == :zero
-        intensity[start] *= 0
-    else
-        throw(ErrorException("NotImplemented initial condition $initial_condition"))
-    end
-    for i in depth_range
-        Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
-        w, _ = _w2(Δτ)
-        intensity[i] = ((1 - w)*intensity[i-incr] +
-                         w * (source_function[i] + source_function[i-incr]) / 2)
-    end
-    return intensity
-end
-
-
-"""
     piecewise_1D_linear(
         z::AbstractVector{T},
         α::AbstractVector{T},
@@ -104,9 +50,8 @@ function piecewise_1D_linear(
     end
     for i in depth_range
         Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
-        ΔS = (source_function[i-incr] - source_function[i]) / Δτ
-        w1, w2 = _w2(Δτ)
-        intensity[i] = (1 - w1)*intensity[i-incr] + w1*source_function[i] + w2*ΔS
+        w1, w2, w3 = _w3(Δτ)
+        intensity[i] = w1*intensity[i-incr] + w2*source_function[i-incr] + w3*source_function[i]
     end
     return intensity
 end
@@ -160,14 +105,11 @@ function piecewise_1D_linear!(
     end
     for i in depth_range
         Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
-        ΔS = (source_function[i-incr] - source_function[i]) / Δτ
-        w1, w2 = _w2(Δτ)
-        intensity[i] = (1 - w1)*intensity[i-incr] + w1*source_function[i] + w2*ΔS
+        w1, w2, w3 = _w3(Δτ)
+        intensity[i] = w1*intensity[i-incr] + w2*source_function[i-incr] + w3*source_function[i]
     end
     return nothing
 end
-
-
 
 
 """
@@ -234,20 +176,26 @@ end
 """
 Computes weights for linear integration of source function,
 approximating `exp(-Δτ)` for very small and very large values of `Δτ`.
+From Jaime de la Cruz Rodriguez, adapted from RH.
 """
-function _w2(Δτ::T) where T <: AbstractFloat
-    if Δτ < 5e-4
-        w1 = Δτ * (1 - Δτ / 2)
-        w2 = Δτ^2 * (0.5f0 - Δτ / 3)
-    elseif Δτ > 50
-        w1 = w2 = one(T)
-    else
-        expΔτ = exp(-Δτ)
-        w1 = 1 - expΔτ
-        w2 = w1 - Δτ * expΔτ
+function _w3(Δτ::T) where T <: AbstractFloat
+    if Δτ > 40   # assume exp(-Δτ) = 0
+        w1 = zero(T)
+        w2 = one(T) / Δτ
+        w3 = one(T) - w2
+    elseif Δτ > 0.01   # normal range
+        w1 = exp(-Δτ)
+        u0 = (one(T) - w1) / Δτ
+        w2 = u0 - w1
+        w3 = one(T) - u0
+    else   # Taylor expansion at Δτ=0
+        w1 = one(T) - Δτ + Δτ^2 / 2
+        w2 = (one(T)/2 - Δτ/3) * Δτ
+        w3 = (one(T)/2 - Δτ/6) * Δτ
     end
-    return w1, w2
+    return w1, w2, w3
 end
+
 
 #=
 Piecewise cubic Bezier based on de la Cruz Rodriguez & Piskunov (2013),
@@ -384,7 +332,7 @@ function piecewise_1D_bezier3!(
             else
                 dα_dn = (α[i+incr] - α[i]) / dsdn
             end
-            #  Do not clip control points, it fails if there is much estimulated emission
+            #  Do not clip control points, it fails if there is much stimulated emission
             c1 = α[i] + dsdn/3 * dα_c
             c2 = α[i+incr] - dsdn/3 * dα_dn
 
