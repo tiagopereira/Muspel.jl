@@ -41,11 +41,11 @@ import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, 
                                   [0., 0., 0.], 10 .^log_ne2, n, n)
         itp_test = get_σ_itp(atmos_test, 500., atoms_list; npts=101)
         @test isa(itp_test, ExtinctionItpNLTE{Float64})
-        @test isapprox(
-            stack(α_cont(itp_nlte2, 5000., 1e20, 1e20, 1e20)),
-            stack(α_cont(itp_test, 5000., 1e20, 1e20, 1e20)),
+        @test all(isapprox.(
+            α_cont(itp_nlte2, 5000., 1e20, 1e20, 1e20),
+            α_cont(itp_test, 5000., 1e20, 1e20, 1e20),
             rtol=1e-3
-        )
+        ))
         @test_throws SystemError get_σ_itp(atmos_test, 500., ["nofile.yaml"])
     end
 
@@ -60,6 +60,7 @@ import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, 
                 stack(α_cont.(Ref(itp_nlte), temp, ni, nHI, nHII)),
                 rtol=1e-5,
             )
+
             # Check if interpolant with no atoms gives same result as α_cont_no_itp
             @test isapprox(
                 stack(α_cont_no_itp.(λ[1], temp, ni, nHI, nHII)),
@@ -68,19 +69,17 @@ import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, 
             )
         end
         # Some checks against implementation
-        prev = [3.099735426728638e-9 5.737579705215677e-11 2.1702740948438375e-10; 
-                2.329923339815215e-8 3.531681790200384e-10 1.4127711713968792e-9; 
-                3.188362344689906e-8 4.5674908136823566e-10 1.9728523541442412e-9; 
-                1.1169536097258309e-9 1.5271949210413109e-10 5.402565280664961e-9; 
-                1.426592398017141e-10 2.2211042523024984e-10 9.191544796655046e-9;;; 
-                6.652458732173518e-11 6.652458732173518e-11 6.652458732173518e-11; 
-                6.652458732173518e-11 6.652458732173518e-11 6.652458732173518e-11; 
-                6.652458732173518e-11 6.652458732173518e-11 6.652458732173518e-11; 
-                6.652458732173518e-11 6.652458732173518e-11 6.652458732173518e-11; 
-                6.652458732173518e-11 6.652458732173518e-11 6.652458732173518e-11]
+        α_prev = [3.099735426728638e-9  5.737579705215677e-11  2.1702740948438375e-10
+                  2.329923339815215e-8  3.531681790200384e-10  1.4127711713968792e-9
+                  3.188362344689906e-8  4.5674908136823566e-10 1.9728523541442412e-9
+                  1.1169536097258309e-9 1.5271949210413109e-10 5.402565280664961e-9
+                  1.426592398017141e-10 2.2211042523024984e-10 9.191544796655046e-9 ]
+        j_prev = 6.652458732173518e-11
         for (i, λi) in enumerate(λ)
             itp = create_σ_itp_LTE(λi, log_temp, log_ne, H, atoms, σ_atom_itp)
-            @test permutedims(stack(α_cont.(Ref(itp), temp, 1e18, 1e20))) ≈ prev[i, :, :]
+            res = stack(α_cont.(Ref(itp), temp, 1e18, 1e20))
+            @test res[1, :] ≈ α_prev[i, :, :]
+            @test all(res[2, :] .≈ j_prev)
         end
     end
 
@@ -91,9 +90,15 @@ import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, 
                 3.9632382586598986     0.6653610542464922
                 1.307251908032521      0.66525482413674265
                 1.876491725439709      0.6652495268358745] * 1e-8
-        @test permutedims(stack(α_cont_no_itp.(λ, 6e3, 1e20, 1e20, 4e15))) ≈ prev
-        # Consistency check, Hmin maximum extinction
-        @test argmax(α_cont_no_itp.(λ, 6e3, 1e20, 1.0e20, 4e15)) == 3 # Only checks thermal scatt
+        α_prev = [0.3875384794861622, 2.906477474892972, 3.9632382586598986,
+                  1.307251908032521, 1.876491725439709] * 1e-8
+        j_prev = [0.6652458732173518, 0.6662737892007118, 0.6653610542464922,
+                  0.66525482413674265, 0.6652495268358745] * 1e-8
+        res = stack(α_cont_no_itp.(λ, 6e3, 1e20, 1e20, 4e15))
+        @test res[1, :] ≈ α_prev
+        @test res[2, :] ≈ j_prev
+        # Consistency check, Hmin maximum extinction (thermal part)
+        @test argmax(res[1, :]) == 3
     end
 
     @testset "σH" begin

@@ -19,11 +19,8 @@ function calc_line_prep!(
             atm.hydrogen1_density[i],
             atm.proton_density[i]
         )
-
         buf.α_c[i] = αc_thermal + αc_scattering
-
         buf.j_c[i] = αc_thermal * blackbody_λ(line.λ0, atm.temperature[i])
-
         buf.γ[i] = calc_broadening(
             line.γ,
             atm.temperature[i],

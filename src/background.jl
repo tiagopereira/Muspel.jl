@@ -90,7 +90,6 @@ function α_cont(
     log_ne = log10(electron_density)
     α_thermal = itp.σ_H(log_temp, log_ne) * hydrogen_density
     α_thermal += (itp.σ_H2(log_temp, log_ne) * hydrogen_density) * hydrogen_density
-
     α_scattering = σ_THOMSON * electron_density
     return α_thermal, α_scattering
 end
@@ -133,17 +132,14 @@ function α_cont(
     proton_density::T,
 )::Tuple{T,T} where T <: AbstractFloat
     log_temp = log10(temperature)
-    log_ne   = log10(electron_density)
+    log_ne = log10(electron_density)
     hydrogen_density = h_neutral_density + proton_density
-
-    α_thermal  = itp.σ_atoms(log_temp, log_ne) * hydrogen_density
+    α_thermal = itp.σ_atoms(log_temp, log_ne) * hydrogen_density
     α_thermal += (itp.σ_hminus(log_temp) * electron_density) * h_neutral_density
     α_thermal += (itp.σ_h_ff(log_temp) * electron_density) * proton_density
     α_thermal += (itp.σ_h2plus(log_temp) * proton_density) * h_neutral_density
-
-    α_scattering  = ustrip(σ_rayleigh_h(itp.λ * u"nm")) * h_neutral_density
+    α_scattering = ustrip(σ_rayleigh_h(itp.λ * u"nm")) * h_neutral_density
     α_scattering += σ_THOMSON * electron_density
-    
     return α_thermal, α_scattering
 end
 
@@ -185,14 +181,12 @@ function α_cont_no_itp(
     electron_density *= u"m^-3"
     h_neutral_density *= u"m^-3"
     proton_density *= u"m^-3"
-
-    α_thermal  = α_hminus_ff(λ, temperature, h_neutral_density,  electron_density)
+    α_thermal = α_hminus_ff(λ, temperature, h_neutral_density,  electron_density)
     α_thermal += α_hminus_bf(λ, temperature, h_neutral_density, electron_density)
     α_thermal += α_hydrogenic_ff(c_0 / λ, temperature, electron_density, proton_density, 1)
     α_thermal += α_h2plus_ff(λ, temperature, h_neutral_density, proton_density)
     α_thermal += α_h2plus_bf(λ, temperature, h_neutral_density, proton_density)
-
-    α_scattering  = α_thomson(electron_density)
+    α_scattering = α_thomson(electron_density)
     α_scattering += α_rayleigh_h(λ, h_neutral_density)
     return ustrip(α_thermal |> u"m^-1"), ustrip(α_scattering |> u"m^-1")
 end
