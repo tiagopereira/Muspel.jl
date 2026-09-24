@@ -5,6 +5,7 @@ Calculate quantities in local thermodynamical equilibrium (LTE).
 const saha_const_u = ustrip(h^2 / (2 * π * m_e * k_B))
 const k_B_u = ustrip(k_B)
 const Hχ∞ = 2.1787094174620437e-18  # in J, from NIST retrieved Jan 2023
+const Hχ∞_kB = Hχ∞ / k_B_u  # in K
 
 
 """
@@ -107,7 +108,10 @@ function saha_boltzmann!(
     nlevels = length(χ)
     @assert nlevels == length(populations)
     kT = convert(T, k_B_u * temperature)
-    saha_factor = convert(T, (saha_const_u / temperature) ^ (3/2) * electron_density / 2)
+    saha_factor = convert(
+      T,
+      (saha_const_u / temperature) * sqrt(saha_const_u / temperature) * electron_density / 2
+    )
     total = one(T)
     for i in 2:nlevels
         ΔE = χ[i] - χ[1]
@@ -150,8 +154,11 @@ end
     h_ionfrac_saha(temp::T, electron_density::T)::T where {T <: Real}
 
 Calculate ionisation fraction of hydrogen using Saha.
+Computed in the precision of `temp`.
 """
 function h_ionfrac_saha(temp::T, electron_density::Real)::T where T <: Real
-    saha = (temp / saha_const_u) ^ (3/2) / electron_density * exp(-Hχ∞ / (k_B_u * temp))
-    return 1 - (1 / (1 + saha))
+    u = temp / convert(T, saha_const_u)
+    s = u * sqrt(u) / electron_density * exp(-convert(T, Hχ∞_kB) / temp)
+    s = min(s, floatmax(T))  # avoid Inf, so that s/(1+s) is always finite
+    return s / (1 + s)
 end
