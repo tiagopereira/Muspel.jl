@@ -6,15 +6,17 @@
     FALC_multi3d_mesh2 = joinpath(@__DIR__, "..", "data", "atmospheres", "mesh.FALC.3x3x82_lines")
 
     @testset "RH" begin
-        # Atmosphere1D tests
+        # Atmosphere with z velocity only
         atm = read_atmos_rh(FALC_RH_file)
-        @test atm isa Atmosphere1D{3, Float32, Array{Float32, 3}, Vector{Float32}}
-        @test typeof(atm[:, 1, 1]) <: Atmosphere1D{1, <:AbstractFloat}
-        @test typeof(atm[:, :, 1]) <: Atmosphere1D{2, <:AbstractFloat}
-        @test typeof(atm[:, 1, :]) <: Atmosphere1D{2, <:AbstractFloat}
-        @test typeof(atm[1:3, 1:3, 1:3]) <: Atmosphere1D{3, <:AbstractFloat}
+        @test atm isa Atmosphere{3, Float32, Array{Float32, 3}, Vector{Float32}}
+        @test keys(atm.velocity) == (:z,)
+        @test !has_magnetic_field(atm)
+        @test typeof(atm[:, 1, 1]) <: Atmosphere{1, <:AbstractFloat}
+        @test typeof(atm[:, :, 1]) <: Atmosphere{2, <:AbstractFloat}
+        @test typeof(atm[:, 1, :]) <: Atmosphere{2, <:AbstractFloat}
+        @test typeof(atm[1:3, 1:3, 1:3]) <: Atmosphere{3, <:AbstractFloat}
         @test atm[:, 1, 1].temperature == atm.temperature[:, 1, 1]
-        @test atm[:, 1, 1].velocity_z == atm.velocity_z[:, 1, 1]
+        @test atm[:, 1, 1].velocity.z == atm.velocity.z[:, 1, 1]
         @test atm[:, 1, 1].electron_density == atm.electron_density[:, 1, 1]
         @test atm[:, 1, 1].hydrogen1_density == atm.hydrogen1_density[:, 1, 1]
         @test atm[:, 1, 1].proton_density == atm.proton_density[:, 1, 1]
@@ -26,7 +28,7 @@
         @test all(atm.temperature .== atm2.temperature)
         # Compare with version with nHtot
         atmH = read_atmos_rh(FALC_RH_nHtot_file)
-        @test all(atmH.velocity_z .== atm.velocity_z)
+        @test all(atmH.velocity.z .== atm.velocity.z)
         @test all(atmH.temperature .== atm.temperature)
         @test all(atmH.electron_density .== atm.electron_density)
         nH1 = atmH.proton_density[:, 1, 1] .+ atmH.hydrogen1_density[:, 1, 1]
@@ -36,9 +38,12 @@
 
     @testset "Multi3D" begin
         atm = read_atmos_multi3d(FALC_multi3d_mesh, FALC_multi3d)
-        @test atm isa Atmosphere3D{Float32, Array{Float32, 3}, Vector{Float32}}
+        @test atm isa Atmosphere{3, Float32, Array{Float32, 3}, Vector{Float32}}
+        @test keys(atm.velocity) == (:x, :y, :z)
+        @test !has_magnetic_field(atm)
         @test atm[:, 1, 1].temperature == atm.temperature[:, 1, 1]
-        @test atm[:, 1, 1].velocity_z == atm.velocity_z[:, 1, 1]
+        @test atm[:, 1, 1].velocity.z == atm.velocity.z[:, 1, 1]
+        @test atm[:, 1, 1].velocity.x == atm.velocity.x[:, 1, 1]
         @test atm[:, 1, 1].electron_density == atm.electron_density[:, 1, 1]
         @test atm[:, 1, 1].hydrogen1_density == atm.hydrogen1_density[:, 1, 1]
         @test atm[:, 1, 1].proton_density == atm.proton_density[:, 1, 1]
@@ -47,10 +52,9 @@
         @test minimum(atm[:, 1, 1].temperature) == 4.5f3
         # Compare against FALC in RH format
         atm_RH = read_atmos_rh(FALC_RH_file)
-        @test atm.velocity_z == atm_RH.velocity_z
+        @test atm.velocity.z == atm_RH.velocity.z
         @test atm.temperature == atm_RH.temperature
         @test atm.electron_density ≈ atm_RH.electron_density
-        @test atm.velocity_z == atm_RH.velocity_z
         atm_RH = read_atmos_rh(FALC_RH_nHtot_file)
         @test atm[:, 1, 1].proton_density ≈ atm_RH[:, 1, 1].proton_density
         @test atm[:, 1, 1].hydrogen1_density ≈ atm_RH[:, 1, 1].hydrogen1_density

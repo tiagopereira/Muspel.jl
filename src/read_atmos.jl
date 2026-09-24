@@ -52,13 +52,16 @@ function read_atmos_rh(atmos_file)
             dims=4
         )
     end
-    return Atmosphere1D(
+    return Atmosphere(
         nx,
         ny,
         nz,
+        x,
+        y,
         z,
         temperature,
-        vz,
+        (z = vz,),
+        nothing,
         electron_density,
         hydrogen1_density,
         proton_density,
@@ -112,13 +115,16 @@ function read_atmos_rh_index(atmos_file; index=1)
             dims=4
         )
     end
-    return Atmosphere1D(
+    return Atmosphere(
         nx,
         ny,
         nz,
+        x,
+        y,
         z,
         temperature,
-        vz,
+        (z = vz,),
+        nothing,
         electron_density,
         hydrogen1_density,
         proton_density,
@@ -147,13 +153,16 @@ function read_atmos_hpops_rh(atmos_file, aux_file; index=1)
         sum(view(hydrogen_density, :, :, :, 1:nhydr-1), dims=4);
         dims=4
     )
-    return Atmosphere1D(
+    return Atmosphere(
         nx,
         ny,
         nz,
+        Float32.(x),
+        Float32.(y),
         Float32.(z),
         temperature,
-        vz,
+        (z = vz,),
+        nothing,
         Float32.(electron_density),
         hydrogen1_density,
         proton_density
@@ -222,7 +231,7 @@ function read_atmos_multi3d(mesh_file, atmos_file; grph=2.380491f-24)
         vz[i] *= u_v
     end
 
-    return Atmosphere3D(
+    return Atmosphere(
         nx,
         ny,
         nz,
@@ -230,9 +239,8 @@ function read_atmos_multi3d(mesh_file, atmos_file; grph=2.380491f-24)
         y,
         z,
         temperature,
-        vx,
-        vy,
-        vz,
+        (x = vx, y = vy, z = vz),
+        nothing,
         electron_density,
         nH,
         proton_density,
@@ -287,7 +295,7 @@ function read_atmos_hpops_multi3d(
         vz[i] *= u_v
     end
 
-    atm = Atmosphere3D(
+    atm = Atmosphere(
         nx,
         ny,
         nz,
@@ -295,9 +303,8 @@ function read_atmos_hpops_multi3d(
         y,
         z,
         temperature,
-        vx,
-        vy,
-        vz,
+        (x = vx, y = vy, z = vz),
+        nothing,
         electron_density,
         HI_density,
         proton_density,

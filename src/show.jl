@@ -42,7 +42,7 @@ end
 ##
 ## Show functions for different types
 ##
-function Base.show(io::IO, ::MIME"text/plain", a::A) where {A <: Muspel.AbstractAtmos}
+function Base.show(io::IO, ::MIME"text/plain", a::A) where {A <: Muspel.AbstractAtmosphere}
     printstyled(io, "┌ "; color=:light_black)
     sum_width = print_sizes(io, (a.nz, a.ny, a.nx))
     summary_line = " $(string(nameof(typeof(a)))){$(eltype(a.temperature))}"
@@ -65,28 +65,32 @@ function Base.show(io::IO, ::MIME"text/plain", a::A) where {A <: Muspel.Abstract
     printstyled(io, "  → y "; color=dimcolors(2))
     if a.ny == 1
         print(io, a.ny, " point")
-        else
-        if typeof(a) <: Atmosphere3D
-            min_y = round(minimum(a.y) / 1e6, sigdigits=4)
-            max_y = round(maximum(a.y) / 1e6, sigdigits=4)
-            print(io, a.ny, " points: $min_y, …, $max_y Mm")
-        else
-            print(io, a.ny, " points")
-        end
+    elseif !isempty(a.y)
+        min_y = round(minimum(a.y) / 1e6, sigdigits=4)
+        max_y = round(maximum(a.y) / 1e6, sigdigits=4)
+        print(io, a.ny, " points: $min_y, …, $max_y Mm")
+    else
+        print(io, a.ny, " points")
     end
     println(io)
 
     printstyled(io, "  ↗ x "; color=dimcolors(3))
     if a.nx == 1
         print(io, a.nx, " point")
+    elseif !isempty(a.x)
+        min_x = round(minimum(a.x) / 1e6, sigdigits=4)
+        max_x = round(maximum(a.x) / 1e6, sigdigits=4)
+        print(io, a.nx, " points: $min_x, …, $max_x Mm")
     else
-        if typeof(a) <: Atmosphere3D
-            min_x = round(minimum(a.x) / 1e6, sigdigits=4)
-            max_x = round(maximum(a.x) / 1e6, sigdigits=4)
-            print(io, a.nx, " points: $min_x, …, $max_x Mm")
-        else
-            print(io, a.nx, " points")
-        end
+        print(io, a.nx, " points")
+    end
+    println(io)
+
+    # vector quantities
+    vcomps = isempty(keys(a.velocity)) ? "none" : join(keys(a.velocity), ", ")
+    print(io, "  velocity: ", vcomps)
+    if has_magnetic_field(a)
+        print(io, " | magnetic field: ", join(keys(a.magnetic_field), ", "))
     end
     println(io)
 

@@ -78,8 +78,32 @@
         @test all(inc_atm.electron_density .== atm.electron_density)
         @test all(inc_atm.proton_density .== atm.proton_density)
         @test all(inc_atm.temperature .== atm.temperature)
-        @test all(inc_atm.velocity_z .== atm.velocity_z)
+        @test all(inc_atm.velocity.z .== atm.velocity.z)
         @test all(inc_atm.z .== atm.z / 0.5)
+    end
+
+    @testset "incline_atmos with magnetic field" begin
+        nz, ny, nx = 4, 3, 3
+        z = collect(0.:nz-1)
+        x = collect(0.:nx-1)
+        y = collect(0.:ny-1)
+        scalar = ones(nz, ny, nx)
+        v0 = (x = zeros(nz, ny, nx), y = zeros(nz, ny, nx), z = zeros(nz, ny, nx))
+        b0 = (x = ones(nz, ny, nx), y = zeros(nz, ny, nx), z = zeros(nz, ny, nx))
+        atm = Atmosphere(nx, ny, nz, x, y, z, scalar, v0, b0,
+                         copy(scalar), copy(scalar), copy(scalar))
+        @test has_magnetic_field(atm)
+        # μ=1: no polar shift, φ=π/2 rotates vectors azimuthally
+        inc_atm = incline_atmos(atm, 1.0, π/2)
+        @test has_magnetic_field(inc_atm)
+        @test all(isapprox.(inc_atm.magnetic_field.x, 0, atol=1e-15))
+        @test all(inc_atm.magnetic_field.y .≈ -1)
+        @test all(isapprox.(inc_atm.magnetic_field.z, 0, atol=1e-15))
+        # atmospheres without 3 velocity components cannot be inclined
+        atm_z = Atmosphere(nx, ny, nz, x, y, z, scalar,
+                           (z = zeros(nz, ny, nx),), nothing,
+                           copy(scalar), copy(scalar), copy(scalar))
+        @test_throws ArgumentError incline_atmos(atm_z, 0.5, 0)
     end
 
     @testset "project_vector" begin

@@ -37,8 +37,9 @@ import Muspel: create_σ_itp_LTE, create_σ_itp_NLTE, get_atoms_bf_interpolant, 
             "test_atoms/H_test_empty.yaml"
         ]
         z_tmp = [1e5, 0., -1e5]
-        atmos_test = Atmosphere1D(1, 1, length(log_temp), z_tmp, 10 .^ log_temp,
-                                  [0., 0., 0.], 10 .^log_ne2, n, n)
+        atmos_test = Atmosphere(1, 1, length(log_temp), Float64[], Float64[], z_tmp,
+                                10 .^ log_temp, (z = [0., 0., 0.],), nothing,
+                                10 .^ log_ne2, n, n)
         itp_test = get_σ_itp(atmos_test, 500., atoms_list; npts=101)
         @test isa(itp_test, ExtinctionItpNLTE{Float64})
         @test all(isapprox.(

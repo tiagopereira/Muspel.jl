@@ -2,40 +2,32 @@
 Collection of types.
 """
 
-abstract type AbstractAtmos{T <: Real} end
-
-abstract type AbstractAtmos1D{N, T <: Real} <: AbstractAtmos{T} end
-
-abstract type AbstractAtmos3D{T <: Real} <: AbstractAtmos{T} end
+abstract type AbstractAtmosphere{N, T <: Real} end
 
 
 """
-Type for 1D atmospheres. Can contain both 1D only, or 1.5D atmospheres (multiple
-columns of 1D atmospheres).
+    Atmosphere{N, T, A, V, Vel, B}
+
+Type for model atmospheres. The dimensionality `N` refers to the data arrays
+(following the order z, y, x for the dimensions that exist). Vector quantities
+are stored in NamedTuples, whose keys encode which components are present:
+
+* `velocity`: any subset of `(:x, :y, :z)`. Atmospheres for 1D/1.5D work
+  typically carry only `(z = ...,)` to save memory and load times.
+* `magnetic_field`: `nothing`, or a NamedTuple with keys `(:x, :y, :z)`.
+
+All components must have the same array type as the scalar fields
+(`AbstractArray{T, N}`). Slicing preserves all components: no field is
+dropped or renamed, only the axis vectors are adjusted.
 """
-struct Atmosphere1D{
+struct Atmosphere{
     N,
     T <: Real,
     A <: AbstractArray{T, N},
-    V <:AbstractVector{T},
-} <: AbstractAtmos1D{N, T}
-    nx::Int64
-    ny::Int64
-    nz::Int64
-    z::V
-    temperature::A
-    velocity_z::A
-    electron_density::A
-    hydrogen1_density::A  # neutral hydrogen across all levels
-    proton_density::A
-end
-
-
-struct Atmosphere3D{
-    T <: Real,
-    A <: AbstractArray{T, 3},
-    V <:AbstractVector{T}
-} <: AbstractAtmos3D{T}
+    V <: AbstractVector{T},
+    Vel <: NamedTuple,
+    B <: Union{Nothing, NamedTuple},
+} <: AbstractAtmosphere{N, T}
     nx::Int64
     ny::Int64
     nz::Int64
@@ -43,117 +35,153 @@ struct Atmosphere3D{
     y::V
     z::V
     temperature::A
-    velocity_x::A
-    velocity_y::A
-    velocity_z::A
+    velocity::Vel
+    magnetic_field::B
     electron_density::A
     hydrogen1_density::A  # neutral hydrogen across all levels
     proton_density::A
+
+    function Atmosphere(
+        nx::Integer,
+        ny::Integer,
+        nz::Integer,
+        x::V,
+        y::V,
+        z::V,
+        temperature::A,
+        velocity::Vel,
+        magnetic_field::B,
+        electron_density::A,
+        hydrogen1_density::A,
+        proton_density::A,
+    ) where {
+        N,
+        T <: Real,
+        A <: AbstractArray{T, N},
+        V <: AbstractVector{T},
+        Vel <: NamedTuple,
+        B <: Union{Nothing, NamedTuple},
+    }
+        _check_components(velocity, A, (:x, :y, :z), "velocity")
+        _check_components(magnetic_field, A, (:x, :y, :z), "magnetic_field"; exact=true)
+        new{N, T, A, V, Vel, B}(
+            nx, ny, nz, x, y, z, temperature, velocity, magnetic_field,
+            electron_density, hydrogen1_density, proton_density,
+        )
+    end
 end
 
 
-Base.ndims(a::AbstractAtmos) = ndims(a.temperature)
+"""
+    _check_components(nt, A, valid_keys, name; exact=false)
+
+Ensure that all elements of `nt` are arrays of type `A`, and that its keys
+are valid. If `exact=true`, the keys must match `valid_keys` exactly.
+"""
+function _check_components(
+    nt::NamedTuple, ::Type{A}, valid_keys, name; exact=false
+) where A <: AbstractArray
+    ks = keys(nt)
+    if exact && ks != valid_keys
+        throw(ArgumentError("$name must have keys $valid_keys, got $ks"))
+    elseif !all(k in valid_keys for k in ks)
+        throw(ArgumentError("Invalid keys in $name: $ks. Valid keys are $valid_keys."))
+    end
+    for (k, v) in pairs(nt)
+        if !(v isa A)
+            throw(ArgumentError(
+                "Component $k of $name must be of type $A, got $(typeof(v))"
+            ))
+        end
+    end
+    return nothing
+end
+
+_check_components(::Nothing, ::Type{<:AbstractArray}, valid_keys, name; exact=false) = nothing
 
 
-Base.size(a::AbstractAtmos) = size(a.temperature)
+"""
+    has_magnetic_field(a::AbstractAtmosphere)
+
+Compile-time check (resolved from the type) for the presence of a magnetic field.
+"""
+has_magnetic_field(a::AbstractAtmosphere) = a.magnetic_field !== nothing
 
 
-function Base.getindex(a::AbstractAtmos1D, args...)
+Base.ndims(::AbstractAtmosphere{N}) where N = N
+
+
+Base.size(a::AbstractAtmosphere) = size(a.temperature)
+
+
+@inline _slice_axis(ax::AbstractVector, i::Integer) = ax[i:i]
+@inline _slice_axis(ax::AbstractVector, i) = ax[i]
+
+@inline _slice_components(nt::NamedTuple, idx) = map(v -> v[idx...], nt)
+_slice_components(::Nothing, idx) = nothing
+
+
+function Base.getindex(a::AbstractAtmosphere{N}, args...) where N
     nD = length(args)
-    if nD != ndims(a)
-        throw(ArgumentError("Invalid number of arguments. Expected $(ndims(a)), got $nD."))
+    if nD != N
+        throw(ArgumentError("Invalid number of arguments. Expected $N, got $nD."))
     end
     indices = to_indices(a.temperature, args)
-    nx = 1
-    ny = 1
-    if nD == 1
-        nz = length(indices[1])
-    elseif nD == 2
-        nz = length(indices[1])
-        ny = length(indices[2])
-    elseif nD == 3
-        nz = length(indices[1])
-        ny = length(indices[2])
-        nx = length(indices[3])
-    end
+    nz = length(indices[1])
+    ny = N > 1 ? length(indices[2]) : 1
+    nx = N > 2 ? length(indices[3]) : 1
     if (nx == 0) | (ny == 0) | (nz == 0)
         throw(ArgumentError("All slices must have non-zero length"))
     end
-    if nz == 1  # horizontal slice unsupported because velocities are not available
-        throw(ArgumentError("Unsupported slice of Atmosphere1D with single z value"))
+    x = a.x
+    y = a.y
+    z = a.z
+    if N == 3
+        if !isempty(a.x)
+            x = _slice_axis(a.x, indices[3])
+        end
+        if !isempty(a.y)
+            y = _slice_axis(a.y, indices[2])
+        end
+        z = _slice_axis(a.z, indices[1])
+        if nz == 1  # horizontal slice: rotate the axis vectors, data arrays untouched
+            if isempty(a.x) | isempty(a.y)
+                throw(ArgumentError("Unsupported slice with a single z value"))
+            elseif ny > 1  # new vertical is the y axis
+                z = _slice_axis(a.y, indices[2])
+                y = _slice_axis(a.z, indices[1])
+                nz, ny = ny, nz
+            elseif nx > 1  # new vertical is the x axis
+                z = _slice_axis(a.x, indices[3])
+                x = _slice_axis(a.z, indices[1])
+                nz, nx = nx, nz
+            else
+                throw(ArgumentError("Cannot slice a single point"))
+            end
+        end
+    else
+        z = _slice_axis(a.z, indices[1])
+        if N > 1 && !isempty(a.y)
+            y = _slice_axis(a.y, indices[2])
+        end
+        if nz == 1
+            throw(ArgumentError("Unsupported slice with a single z value"))
+        end
     end
-    return Atmosphere1D(
+    return Atmosphere(
         nx,
         ny,
         nz,
-        a.z[indices[1]],
+        x,
+        y,
+        z,
         a.temperature[indices...],
-        a.velocity_z[indices...],
+        _slice_components(a.velocity, indices),
+        _slice_components(a.magnetic_field, indices),
         a.electron_density[indices...],
         a.hydrogen1_density[indices...],
         a.proton_density[indices...],
     )
-end
-
-
-function Base.getindex(a::AbstractAtmos3D, i, j, k)
-    iz, iy, ix = to_indices(a.temperature, (i, j, k))
-    nx = length(ix)
-    ny = length(iy)
-    nz = length(iz)
-    if (nx == 0) | (ny == 0) | (nz == 0)
-        throw(ArgumentError("All slices must have non-zero length"))
-    end
-    if (nz > 1) & (ny > 1) & (nx > 1)  # simple slice, return same type
-        return Atmosphere3D(
-            nx,
-            ny,
-            nz,
-            a.x[ix],
-            a.y[iy],
-            a.z[iz],
-            a.temperature[iz, iy, ix],
-            a.velocity_x[iz, iy, ix],
-            a.velocity_y[iz, iy, ix],
-            a.velocity_z[iz, iy, ix],
-            a.electron_density[iz, iy, ix],
-            a.hydrogen1_density[iz, iy, ix],
-            a.proton_density[iz, iy, ix],
-        )
-    else  # reduced dimensionality slice, return Atmosphere1D
-        if length(iz) == 1  # special case of horizontal slice
-            if length(iy) > 1  # first case, swap z for y axis
-                nx = length(ix)
-                ny = length(iz)
-                nz = length(iy)
-                z = a.y[iy]
-                vz = a.velocity_y[iz, iy, ix]
-            elseif length(iy) == 1  # second case, swap z for x axis
-                nx = length(iz)
-                ny = length(iy)
-                nz = length(ix)
-                z = a.x[ix]
-                vz = a.velocity_x[iz, iy, ix]
-            end
-        else
-            nx = length(ix)
-            ny = length(iy)
-            nz = length(iz)
-            z = a.z[iz]
-            vz = a.velocity_z[iz, iy, ix]
-        end
-        return Atmosphere1D(
-            nx,
-            ny,
-            nz,
-            z,
-            a.temperature[iz, iy, ix],
-            vz,
-            a.electron_density[iz, iy, ix],
-            a.hydrogen1_density[iz, iy, ix],
-            a.proton_density[iz, iy, ix],
-        )
-    end
 end
 
 

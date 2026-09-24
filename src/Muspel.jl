@@ -1,6 +1,6 @@
 module Muspel
 
-export Atmosphere1D, Atmosphere3D
+export AbstractAtmosphere, Atmosphere, has_magnetic_field
 export AtomicLine, AtomicContinuum, AtomicModel
 export RTBuffer
 export AbstractBroadening, LineBroadening

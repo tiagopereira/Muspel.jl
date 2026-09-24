@@ -4,9 +4,9 @@ using AtomicData
 using Base.Threads
 
 """
-Calculates τ500 from an Atmos3D.
+Calculates τ500 from a 3D atmosphere.
 """
-function τ_from_atmos(atmos::Atmosphere3D; wave=500)
+function τ_from_atmos(atmos::AbstractAtmosphere{3}; wave=500)
     
     # Background atoms to source bound-free edges as sources of continuum opacity
     bckgr_atoms = [
@@ -86,7 +86,7 @@ function τ500_from_snap(
         hydrogen1_density[i] *= (1 - ionfrac)
     end
 
-    atmos = Atmosphere3D(
+    atmos = Atmosphere(
         nx,
         ny,
         nz,
@@ -94,9 +94,8 @@ function τ500_from_snap(
         y,
         z,
         temperature,
-        similar(temperature), # velocity x not needed
-        similar(temperature), # velocity y not needed
-        similar(temperature), # velocity z not needed
+        NamedTuple(),  # velocity not needed
+        nothing,       # no magnetic field
         electron_density,
         hydrogen1_density,  # neutral hydrogen across all levels
         proton_density,

@@ -8,7 +8,7 @@ continuum extinction and emissivity, broadening, and Doppler width. They are sav
 function calc_line_prep!(
     line::AtomicLine,
     buf::RTBuffer{T},
-    atm::Atmosphere1D{1, T},
+    atm::Atmosphere{1, T},
     σ_itp::ExtinctionItpNLTE{<:Real},
 ) where T <: AbstractFloat
     for i in 1:atm.nz
@@ -37,7 +37,7 @@ end
         line::AtomicLine,
         buf::RTBuffer{T},
         λ::AbstractVector{T},
-        atm::Atmosphere1D{1, T},
+        atm::Atmosphere{1, T},
         n_up::AbstractVector{T},
         n_lo::AbstractVector{T},
         voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
@@ -53,7 +53,7 @@ function calc_line_1D!(
     line::AtomicLine,
     buf::RTBuffer{T},
     λ::AbstractVector{M},
-    atm::Atmosphere1D{1, T},
+    atm::Atmosphere{1, T},
     n_up::AbstractVector{T},
     n_lo::AbstractVector{T},
     voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
@@ -74,7 +74,7 @@ function calc_line_1D!(
         for iz in 1:atm.nz
             # Wavelength-dependent part
             a = damping(buf.γ[iz], λi, buf.ΔλD[iz])  # very small dependence on λ
-            v = (λi - line.λ0 + line.λ0 * atm.velocity_z[iz] * vsign / ustrip(c_0)) / buf.ΔλD[iz]
+            v = (λi - line.λ0 + line.λ0 * atm.velocity.z[iz] * vsign / ustrip(c_0)) / buf.ΔλD[iz]
             profile = real(voigt_itp(a, abs(v))) / (sqrt(π) * buf.ΔλD[iz])  # units nm^-1
             # Part that only multiplies by wavelength:
             α_tmp = γ_energy * profile
@@ -100,7 +100,7 @@ function calc_line_1D_isotopes!(
     line::AtomicLine,
     buf::RTBuffer{T},
     λ::AbstractVector{M},
-    atm::Atmosphere1D{1, T},
+    atm::Atmosphere{1, T},
     n_up::AbstractVector{T},
     n_lo::AbstractVector{T},
     voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2},
@@ -131,7 +131,7 @@ function calc_line_1D_isotopes!(
                 λ0 = line.λ0 + iso_Δλ[n]
                 # Wavelength-dependent part
                 a = damping(buf.γ[iz], λi, ΔλD)  # very small dependence on λ
-                v = (λi - λ0 + λ0 * atm.velocity_z[iz] * vsign / ustrip(c_0)) / ΔλD
+                v = (λi - λ0 + λ0 * atm.velocity.z[iz] * vsign / ustrip(c_0)) / ΔλD
                 profile = real(voigt_itp(a, abs(v))) / (sqrt(π) * ΔλD) * iso_fraction[n]
                 α_tmp += γ_energy * profile * (n_lo[iz] * line.Blu - n_up[iz] * line.Bul)
                 j_tmp += γ_energy * profile * n_up[iz] * line.Aul
@@ -157,7 +157,7 @@ from the observer to the stellar interior. The wavelength
 is defined by σ_itp.
 """
 function calc_τ_cont!(
-    atm::Atmosphere1D{1, T},
+    atm::Atmosphere{1, T},
     τ::AbstractVector{<:Real},
     σ_itp::ExtinctionItpNLTE{<:Real},
 ) where T <: AbstractFloat

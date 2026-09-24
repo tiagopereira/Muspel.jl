@@ -3,7 +3,7 @@ Tools for inclining atmospheres.
 """
 
 """
-    incline_atmos(atmos_in::AbstractAtmos3D, μ::Real, φ::Real)
+    incline_atmos(atmos_in::AbstractAtmosphere{3}, μ::Real, φ::Real)
 
 Transforms a 3D atmosphere into an inclined coordinate system, given by a rotation
 by a polar angle θ, given by μ = cos(θ) and an azimuthal angle φ. The output is
@@ -36,20 +36,26 @@ Assumes the following:
   x
 ```
 """
-function incline_atmos(atmos_in::AbstractAtmos3D, μ::Real, φ::Real)
+function incline_atmos(atmos_in::AbstractAtmosphere{3}, μ::Real, φ::Real)
+    if keys(atmos_in.velocity) != (:x, :y, :z)
+        throw(ArgumentError(
+            "incline_atmos requires an atmosphere with x, y, z velocity components"
+        ))
+    end
     atmos = deepcopy(atmos_in)
     dx = abs(atmos.x[2] - atmos.x[1])
     dy = abs(atmos.y[2] - atmos.y[1])
     for name in fieldnames(typeof(atmos))
         var = getfield(atmos, name)
         var_in = getfield(atmos_in, name)
-        if ndims(var) == 3
-            if name in [:velocity_x, :velocity_y, :velocity_z, :Bx, :By, :Bz]
-                interp = :cubic
-            else  # ensure other variables are always positive, use linear
-                interp = :linear
+        if var isa NamedTuple  # vector quantities, use cubic interpolation
+            for k in keys(var)
+                incline_data!(var_in[k], var[k], atmos.z, dx, dy, μ, φ;
+                              interpolation=:cubic)
             end
-            incline_data!(var_in, var, atmos.z, dx, dy, μ, φ; interpolation=interp)
+        elseif var isa AbstractArray{<:Real, 3}
+            # ensure other variables are always positive, use linear
+            incline_data!(var_in, var, atmos.z, dx, dy, μ, φ; interpolation=:linear)
         end
     end
     # adjust physical sizes
@@ -57,9 +63,10 @@ function incline_atmos(atmos_in::AbstractAtmos3D, μ::Real, φ::Real)
     atmos.x .*= μ * cos(φ)
     atmos.y .*= μ * sin(φ)
     # project vector quantities
-    project_vector!(atmos.velocity_x, atmos.velocity_y, atmos.velocity_z, μ, φ)
-    if all([f in fieldnames(typeof(atmos)) for f in [:Bx, :By, :Bz]])
-        project_vector!(atmos.Bx, atmos.By, atmos.Bz, μ, φ)
+    project_vector!(atmos.velocity.x, atmos.velocity.y, atmos.velocity.z, μ, φ)
+    if has_magnetic_field(atmos)
+        project_vector!(atmos.magnetic_field.x, atmos.magnetic_field.y,
+                        atmos.magnetic_field.z, μ, φ)
     end
     return atmos
 end
