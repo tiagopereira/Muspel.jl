@@ -9,130 +9,132 @@ using DelimitedFiles
 
 
 """
-Reads RH atmosphere. Returns always in single precision.
+    _read_rh_var!(buf, dset, filetype, index, trailing=())
+
+Low-level read of an RH dataset into a preallocated `Float32` buffer, with
+on-the-fly conversion to `Float32`. If the dataset has one more dimension
+than expected from `buf` and `trailing`, that dimension is interpreted as
+time and only timestep `index` is read. `trailing` holds fixed indices just
+before the time dimension (e.g. the level in `hydrogen_populations`).
 """
-function read_atmos_rh(atmos_file)
+function _read_rh_var!(
+    buf::Array{Float32},
+    dset::HDF5.Dataset,
+    filetype::HDF5.Datatype,
+    index::Integer,
+    trailing::Tuple{Vararg{Int}}=(),
+)
+    idx = (ntuple(_ -> Colon(), ndims(buf))..., trailing...)
+    if ndims(dset) == length(idx) + 1
+        idx = (idx..., index)
+    end
+    HDF5.generic_read!(buf, dset, filetype, Float32, idx...)
+    return buf
+end
+
+
+function _get_rh_dataset(fid, name)
+    haskey(fid, name) && return fid[name]
+    throw(ArgumentError("Dataset $name not found in $(HDF5.filename(fid))"))
+end
+
+
+"""
+    read_atmos_rh(atmos_file; index=1, read_fullv=false, read_B=false)
+
+Reads RH atmosphere. Returns always in single precision.
+
+# Keywords
+- `index`: timestep to read, for files with multiple timesteps (default 1).
+- `read_fullv`: also read `velocity_x` and `velocity_y`, so that the
+  atmosphere carries all three velocity components (default: only `velocity_z`).
+- `read_B`: also read the magnetic field datasets `B_x`, `B_y`, `B_z`.
+"""
+function read_atmos_rh(atmos_file; index=1, read_fullv=false, read_B=false)
     h5F32 = HDF5.datatype(Float32)
-    fid = h5open(atmos_file)
-    nz, ny, nx, nhydr, nt = size(fid["hydrogen_populations"])
-    @assert nt == 1 "RH atmospheres with multiple timesteps are not supported"
-
-    z = Vector{Float32}(undef, nz)
-    y = Vector{Float32}(undef, ny)
-    x = Vector{Float32}(undef, nx)
-    temperature = Array{Float32}(undef, nz, ny, nx)
-    electron_density = Array{Float32}(undef, nz, ny, nx)
-    hydrogen_density = Array{Float32}(undef, nz, ny, nx, nhydr)
-    vz = Array{Float32}(undef, nz, ny, nx)
-    HDF5.generic_read!(z, getindex(fid, "z"), h5F32, Float32)
-    HDF5.generic_read!(y, getindex(fid, "y"), h5F32, Float32)
-    HDF5.generic_read!(x, getindex(fid, "x"), h5F32, Float32)
-    HDF5.generic_read!(temperature, getindex(fid, "temperature"), h5F32, Float32)
-    HDF5.generic_read!(electron_density, getindex(fid, "electron_density"), h5F32, Float32)
-    HDF5.generic_read!(hydrogen_density, getindex(fid, "hydrogen_populations"), h5F32, Float32)
-    HDF5.generic_read!(vz, getindex(fid, "velocity_z"), h5F32, Float32)
-    close(fid)
-
-    # must define proton_density
-    if nhydr == 1
-        hydrogen1_density = hydrogen_density[:, :, :, 1]
-        proton_density = similar(hydrogen1_density)
-        Threads.@threads for i in eachindex(temperature)
-            ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
-            proton_density[i] = hydrogen1_density[i] * ionfrac
-            hydrogen1_density[i] *= (1 - ionfrac)
+    h5open(atmos_file) do fid
+        magnetic = attrs(fid)["has_B"][1] == 1 ? true : false
+        dims = size(fid["hydrogen_populations"])
+        nz, ny, nx, nhydr = dims[1], dims[2], dims[3], dims[4]
+        nt = length(dims) == 5 ? dims[5] : 1
+        if !(1 <= index <= nt)
+            throw(ArgumentError("Invalid timestep $index, file has $nt timestep(s)"))
         end
-    elseif nhydr == 2
-        hydrogen1_density = hydrogen_density[:, :, :, 1]
-        proton_density = hydrogen_density[:, :, :, 2]
-    elseif nhydr > 2
-        proton_density = hydrogen_density[:, :, :, end]
-        hydrogen1_density = dropdims(
-            sum(view(hydrogen_density, :, :, :, 1:nhydr-1), dims=4);
-            dims=4
+
+        x = Vector{Float32}(undef, nx)
+        y = Vector{Float32}(undef, ny)
+        z = Vector{Float32}(undef, nz)
+        temperature = Array{Float32}(undef, nz, ny, nx)
+        electron_density = Array{Float32}(undef, nz, ny, nx)
+        vz = Array{Float32}(undef, nz, ny, nx)
+        _read_rh_var!(x, fid["x"], h5F32, index)
+        _read_rh_var!(y, fid["y"], h5F32, index)
+        _read_rh_var!(z, fid["z"], h5F32, index)
+        _read_rh_var!(temperature, fid["temperature"], h5F32, index)
+        _read_rh_var!(electron_density, fid["electron_density"], h5F32, index)
+        _read_rh_var!(vz, fid["velocity_z"], h5F32, index)
+
+        velocity = (z = vz,)
+        if read_fullv
+            vx = _read_rh_var!(similar(vz), _get_rh_dataset(fid, "velocity_x"), h5F32, index)
+            vy = _read_rh_var!(similar(vz), _get_rh_dataset(fid, "velocity_y"), h5F32, index)
+            velocity = (x = vx, y = vy, z = vz)
+        end
+
+        magnetic_field = nothing
+        if read_B && magnetic
+            bx = _read_rh_var!(similar(vz), _get_rh_dataset(fid, "B_x"), h5F32, index)
+            by = _read_rh_var!(similar(vz), _get_rh_dataset(fid, "B_y"), h5F32, index)
+            bz = _read_rh_var!(similar(vz), _get_rh_dataset(fid, "B_z"), h5F32, index)
+            magnetic_field = (x = bx, y = by, z = bz)
+        end
+
+        # Read hydrogen populations level by level: avoids allocating the
+        # full (nz, ny, nx, nhydr) array when only totals are needed.
+        dset_pops = fid["hydrogen_populations"]
+        proton_density = similar(vz)
+        if nhydr == 1
+            hydrogen1_density = similar(vz)
+            _read_rh_var!(hydrogen1_density, dset_pops, h5F32, index, (1,))
+            # compute proton density from Saha ionisation fraction
+            Threads.@threads for i in eachindex(temperature)
+                @inbounds begin
+                    h1 = hydrogen1_density[i]
+                    proton_density[i] = h1 *
+                        h_ionfrac_saha(temperature[i], electron_density[i])
+                    hydrogen1_density[i] = h1 - proton_density[i]
+                end
+            end
+        elseif nhydr == 2
+            hydrogen1_density = similar(vz)
+            _read_rh_var!(hydrogen1_density, dset_pops, h5F32, index, (1,))
+            _read_rh_var!(proton_density, dset_pops, h5F32, index, (2,))
+        else
+            hydrogen1_density = zeros(Float32, nz, ny, nx)
+            buffer = similar(vz)
+            for level in 1:(nhydr - 1)
+                _read_rh_var!(buffer, dset_pops, h5F32, index, (level,))
+                hydrogen1_density .+= buffer
+            end
+            _read_rh_var!(proton_density, dset_pops, h5F32, index, (nhydr,))
+        end
+
+        Atmosphere(
+            nx,
+            ny,
+            nz,
+            x,
+            y,
+            z,
+            temperature,
+            velocity,
+            magnetic_field,
+            electron_density,
+            hydrogen1_density,
+            proton_density,
         )
     end
-    return Atmosphere(
-        nx,
-        ny,
-        nz,
-        x,
-        y,
-        z,
-        temperature,
-        (z = vz,),
-        nothing,
-        electron_density,
-        hydrogen1_density,
-        proton_density,
-    )
 end
-
-
-"""
-Reads RH atmosphere. Returns always in single precision.
-Slightly slower version that supports selecting timestep.
-"""
-function read_atmos_rh_index(atmos_file; index=1)
-    fid = h5open(atmos_file)
-    nz, ny, nx, nhydr, _ = size(fid["hydrogen_populations"])
-    close(fid)
-
-    z = Vector{Float32}(undef, nz)
-    y = Vector{Float32}(undef, ny)
-    x = Vector{Float32}(undef, nx)
-
-    z .= h5read(atmos_file, "z", (:, index))
-    y .= h5read(atmos_file, "y")
-    x .= h5read(atmos_file, "x")
-
-    temperature = Array{Float32}(undef, nz, ny, nx)
-    electron_density = Array{Float32}(undef, nz, ny, nx)
-    hydrogen_density = Array{Float32}(undef, nz, ny, nx, nhydr)
-    vz = Array{Float32}(undef, nz, ny, nx)
-
-    temperature .= h5read(atmos_file, "temperature", (:, :, :, index))
-    electron_density .= h5read(atmos_file, "electron_density", (:, :, :, index))
-    hydrogen_density .= h5read(atmos_file, "hydrogen_populations", (:, :, :, :, index))
-    vz .= h5read(atmos_file, "velocity_z", (:, :, :, index))
-
-    # must define proton_density
-    if nhydr == 1
-        hydrogen1_density = hydrogen_density[:, :, :, 1]
-        proton_density = similar(hydrogen1_density)
-        Threads.@threads for i in eachindex(temperature)
-            ionfrac = h_ionfrac_saha(temperature[i], electron_density[i])
-            proton_density[i] = hydrogen1_density[i] * ionfrac
-            hydrogen1_density[i] *= (1 - ionfrac)
-        end
-    elseif nhydr == 2
-        hydrogen1_density = hydrogen_density[:, :, :, 1]
-        proton_density = hydrogen_density[:, :, :, 2]
-    elseif nhydr > 2
-        proton_density = hydrogen_density[:, :, :, end]
-        hydrogen1_density = dropdims(
-            sum(view(hydrogen_density, :, :, :, 1:nhydr-1), dims=4);
-            dims=4
-        )
-    end
-    return Atmosphere(
-        nx,
-        ny,
-        nz,
-        x,
-        y,
-        z,
-        temperature,
-        (z = vz,),
-        nothing,
-        electron_density,
-        hydrogen1_density,
-        proton_density,
-    )
-end
-
-
-
 
 
 """
