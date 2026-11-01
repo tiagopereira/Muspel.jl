@@ -2,21 +2,23 @@ module Muspel
 
 export AbstractAtmosphere, Atmosphere, has_magnetic_field
 export AtomicLine, AtomicContinuum, AtomicModel
-export RTBuffer
+export RTBuffer, RTBufferStokes
 export AbstractBroadening, LineBroadening
 export read_atom
 export saha_boltzmann, saha_boltzmann!
 export AbstractExtinctionItp, ExtinctionItpLTE, ExtinctionItpNLTE
 export α_cont, α_cont_no_itp, get_σ_itp
-export piecewise_1D_linear, piecewise_1D_linear!, piecewise_1D_bezier3!, feautrier
+export piecewise_1D_linear, piecewise_1D_linear!, piecewisestokes_1D_linear!
+export piecewise_1D_bezier3!, feautrier
 export read_atmos_rh, read_atmos_hpops_rh, read_pops_rh
 export read_atmos_hpops_multi3d, read_atmos_multi3d, read_pops_multi3d
 export doppler_width, damping, calc_broadening, create_voigt_itp
 export blackbody_λ
-export calc_line_prep!, calc_line_1D!, calc_line_1D_isotopes!
+export calc_line_prep!, calc_line_1D!, calc_line_stokes_1D!, calc_line_1D_isotopes!
 export calc_τ_cont!, calc_τ_one_height
 export incline_atmos, incline_data!, incline_data_inv!, project_vector!
 export g_eff, g_LS, g_jj, g_JK, zeeman_strength, get_zeeman_components
+export field_geometry, stokes_profiles, StokesA
 
 using AtomicData
 using Interpolations

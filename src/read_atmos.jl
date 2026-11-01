@@ -53,7 +53,7 @@ Reads RH atmosphere. Returns always in single precision.
 function read_atmos_rh(atmos_file; index=1, read_fullv=false, read_B=false)
     h5F32 = HDF5.datatype(Float32)
     h5open(atmos_file) do fid
-        magnetic = attrs(fid)["has_B"][1] == 1 ? true : false
+        magnetic = haskey(fid, "B_x") && haskey(fid, "B_y") && haskey(fid, "B_z") ? true : false
         dims = size(fid["hydrogen_populations"])
         nz, ny, nx, nhydr = dims[1], dims[2], dims[3], dims[4]
         nt = length(dims) == 5 ? dims[5] : 1

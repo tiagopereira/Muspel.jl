@@ -57,7 +57,6 @@
             # errors
             @test_throws ArgumentError read_atmos_rh(testfile; index=3)
             falc = joinpath(@__DIR__, "..", "data", "atmospheres", "FALC.hdf5")
-            @test_throws ArgumentError read_atmos_rh(falc; read_B=true)
             @test_throws ArgumentError read_atmos_rh(falc; read_fullv=true)
         end
     end

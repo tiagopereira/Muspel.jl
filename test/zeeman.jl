@@ -68,6 +68,55 @@
         @test_throws ArgumentError Muspel.parse_label_LS("HE I")
         @test_throws ArgumentError Muspel.parse_label_LS("E asdPFS")
     end
+    @testset "field_geometry" begin
+        @test field_geometry(0f0, 0f0, 0f0) == (0f0, 1f0, 0f0, 1f0, 0f0)
+        B, cosγ, sin²γ, cos2χ, sin2χ = field_geometry(0f0, 0f0, -2f0)
+        @test (B, cosγ, sin²γ) == (2f0, -1f0, 0f0)
+        B, cosγ, sin²γ, cos2χ, sin2χ = field_geometry(3f0, 0f0, 0f0)
+        @test (B, cosγ, sin²γ, cos2χ, sin2χ) == (3f0, 0f0, 1f0, 1f0, 0f0)
+        B, cosγ, sin²γ, cos2χ, sin2χ = field_geometry(0f0, 3f0, 0f0)
+        @test (cos2χ, sin2χ) == (-1f0, 0f0)
+        B, cosγ, sin²γ, cos2χ, sin2χ = field_geometry(1f0, 1f0, 0f0)
+        @test (cos2χ, sin2χ) == (0f0, 1f0)
+        # Compare with explicit angles
+        bx, by, bz = 0.3f0, -0.5f0, 0.7f0
+        B, cosγ, sin²γ, cos2χ, sin2χ = field_geometry(bx, by, bz)
+        γ = acos(bz / sqrt(bx^2 + by^2 + bz^2))
+        χ = atan(by, bx)
+        @test B ≈ sqrt(bx^2 + by^2 + bz^2)
+        @test all((cosγ, sin²γ, cos2χ, sin2χ) .≈ (cos(γ), sin(γ)^2, cos(2χ), sin(2χ)))
+        # Field almost along the line of sight is well behaved in single precision
+        _, cosγ, sin²γ, _, _ = field_geometry(1f-4, 0f0, 1f0)
+        @test sin²γ ≈ 1f-8 rtol=1e-5
+    end
+    @testset "stokes_profiles" begin
+        voigt_itp = create_voigt_itp(LinRange(1f-4, 1f1, 200), LinRange(0f0, 20f0, 400))
+        comps = get_zeeman_components(0, 1, 1, 0, 1, 0)
+        line = AtomicLine(
+            2, 0f0, 0f0, 1, 1, 0f0, 0f0, 0f0, 500f0, 0f0, 1f0, Float32[500, 501], false, true,
+            nothing, nothing, LineBroadening(0f0, Muspel.SVector{0, Float32}(), Muspel.SVector{0, Float32}(),
+            Muspel.SVector{0, Float32}(), Muspel.SVector{0, Float32}()), comps...
+        )
+        args = (line, voigt_itp, 0.1f0, 0.5f0, 0.03f0)
+        # No field: unpolarised profile and no magneto-optical effects
+        ϕI, ϕQ, ϕU, ϕV, ψQ, ψU, ψV = stokes_profiles(args..., 0f0, 0.6f0, 0.3f0, 0.8f0, 0.6f0)
+        @test ϕI ≈ real(voigt_itp(0.1f0, 0.5f0)) / (sqrt(π) * 0.03f0)
+        @test all(abs.((ϕQ, ϕU, ϕV, ψQ, ψU, ψV)) .< 1e-6 * ϕI)
+        # Longitudinal field: V changes sign with the field direction
+        ΔλB = 0.005f0
+        p1 = stokes_profiles(args..., ΔλB, 1f0, 0f0, 1f0, 0f0)
+        p2 = stokes_profiles(args..., ΔλB, -1f0, 0f0, 1f0, 0f0)
+        @test p1[4] ≈ -p2[4]
+        @test p1[1] ≈ p2[1]
+        @test p1[2] ≈ 0 atol=1e-6
+        @test p1[3] ≈ 0 atol=1e-6
+        # Transverse field: rotating the azimuth by 45° turns Q into U
+        q1 = stokes_profiles(args..., ΔλB, 0f0, 1f0, 1f0, 0f0)
+        q2 = stokes_profiles(args..., ΔλB, 0f0, 1f0, 0f0, 1f0)
+        @test q1[2] ≈ q2[3] rtol=1e-4
+        @test abs(q1[3]) < 1e-6
+        @test abs(q1[4]) < 1e-6
+    end
     @testset "zeeman_components" begin
         # normal Zeeman
         @test get_zeeman_components(0, 1, 1, 0, 1, 0) == ([1], [-1], [1], [0], [1], [1])

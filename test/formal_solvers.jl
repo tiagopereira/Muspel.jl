@@ -74,6 +74,45 @@
         @test_throws ErrorException piecewise_1D_linear!(z, alpha, S, result; initial_condition=:aaa)
         @test_throws ErrorException piecewise_1D_bezier3!(z, alpha, S, result; initial_condition=:aaa)
     end
+    @testset "PiecewiseStokes" begin
+        nz = 20
+        z = collect(LinRange(1, 1e6, nz))
+        alpha = collect(LinRange(1e-3, 1e-5, nz))
+        S = collect(LinRange(1, 100, nz))
+        SV = Muspel.SVector{4, Float64}
+        out = Vector{SV}(undef, nz)
+        src = [SV(s, 0, 0, 0) for s in S]
+        # Without polarisation, should be the same as scalar solver
+        K = fill(zero(Muspel.SMatrix{4, 4, Float64, 16}), nz)
+        result = similar(S)
+        for to_end in (false, true), ic in (:source, :zero)
+            piecewise_1D_linear!(z, alpha, S, result; to_end=to_end, initial_condition=ic)
+            piecewisestokes_1D_linear!(z, alpha, src, K, out; to_end=to_end, initial_condition=ic)
+            @test first.(out) ≈ result
+            @test all(o -> all(o[2:4] .== 0), out)
+        end
+        # Optically thick, LTE-like source vector S = (1 + K) B e1, then I = B e1
+        Kc = Muspel.SMatrix{4, 4, Float64, 16}(
+            [0 .3 .1 .2; .3 0 .4 -.1; .1 -.4 0 .5; .2 .1 -.5 0]
+        )
+        K = fill(Kc, nz)
+        B = 2.0
+        src = fill(SV(B * (one(Kc) + Kc)[:, 1]), nz)
+        piecewisestokes_1D_linear!(z, ones(nz), src, K, out)
+        @test all(o -> o[1] ≈ B, out)
+        @test all(o -> all(abs.(o[2:4]) .< 1e-12), out)
+        # Reversibility
+        piecewisestokes_1D_linear!(z, alpha, src, K, out)
+        out_r = similar(out)
+        piecewisestokes_1D_linear!(z, reverse(alpha), reverse(src), reverse(K), out_r; to_end=true)
+        @test out_r ≈ reverse(out)
+        # No allocations
+        @test (@allocated piecewisestokes_1D_linear!(z, alpha, src, K, out)) == 0
+        # Exceptions
+        @test_throws ErrorException piecewisestokes_1D_linear!(
+            z, alpha, src, K, out; initial_condition=:aaa
+        )
+    end
     @testset "Feautrier" begin
         z = collect(LinRange(2e6, -1e5, 20))
         alpha = 1e-5 * ones(20)

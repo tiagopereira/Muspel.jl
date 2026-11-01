@@ -95,4 +95,15 @@
         @test size(tmp.intensity) == (nwave,)
         @test size(tmp.source_function) == (ndep,)
     end
+    @testset "RTBufferStokes" begin
+        ndep = 5
+        nwave = 2
+        tmp = RTBufferStokes(ndep, nwave)
+        @test size(tmp.stokes) == (nwave, 4)
+        @test eltype(tmp.source) == Muspel.SVector{4, Float32}
+        @test size(tmp.source) == (ndep,)
+        @test size(tmp.int_tmp) == (ndep,)
+        @test size(tmp.K) == (ndep,)
+        @test eltype(tmp.K) == Muspel.SMatrix{4, 4, Float32, 16}
+    end
 end

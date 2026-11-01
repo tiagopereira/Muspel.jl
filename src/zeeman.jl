@@ -170,58 +170,93 @@ end
 
 
 """
+    field_geometry(Bx, By, Bz)
+
+Computes the geometry of a magnetic field vector needed for the Zeeman profiles,
+without any trigonometric functions. `z` is the line of sight, so `γ` is the
+inclination and `χ` the azimuth (from `x`) of the field.
+
+Returns `(B, cosγ, sin²γ, cos2χ, sin2χ)`. For `B = 0` or a field along the line of sight
+(where `χ` is undefined) it returns `sin²γ = 0` and a fixed, arbitrary azimuth.
+"""
+@inline function field_geometry(Bx::T, By::T, Bz::T) where T <: AbstractFloat
+    B⊥² = Bx^2 + By^2
+    B = sqrt(B⊥² + Bz^2)
+    if B == 0
+        return zero(T), one(T), zero(T), one(T), zero(T)
+    end
+    cosγ = Bz / B
+    sin²γ = B⊥² / B^2
+    if B⊥² == 0
+        cos2χ, sin2χ = one(T), zero(T)
+    else
+        cos2χ = (Bx^2 - By^2) / B⊥²
+        sin2χ = 2 * Bx * By / B⊥²
+    end
+    return B, cosγ, sin²γ, cos2χ, sin2χ
+end
+
+
+"""
+    stokes_profiles(line, voigt_itp, a, v, ΔλD, ΔλB, cosγ, sin²γ, cos2χ, sin2χ)
+
 Computes line profiles under Zeeman effect, for all
 Stokes parameters and also including magneto-optical effects.
+`ΔλB` is the Zeeman wavelength shift, and the field geometry is given by
+`cosγ`, `sin²γ`, `cos2χ` and `sin2χ` (see [`field_geometry`](@ref)).
 
 Returns a 7-element tuple with: (ϕI, ϕQ, ϕU, ϕV, ψQ, ψU, ψV).
 
 Takes into account the symmetry of H and anti-symmetry of L,
 so voigt_itp only needs to cover positive values of v.
 """
-function stokes_profiles(
+@inline function stokes_profiles(
     line::AtomicLine,
     voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2},
     a::T,
     v::T,
     ΔλD::T,
     ΔλB::T,
-    Bγ::T,
-    Bχ::T,
+    cosγ::T,
+    sin²γ::T,
+    cos2χ::T,
+    sin2χ::T,
 )::NTuple{7, T} where T <: AbstractFloat
-    ϕ0 = ϕm = ϕp = ψ0 = ψm = ψp = 0f0
-    for i in 1:length(line.σr_shift)  # sigma red components (ΔMj = -1)
-        v_zeeman = v + line.σr_shift[i] * ΔλB / ΔλD
-        voigt = voigt_itp(a, abs(v_zeeman)) / (sqrt(π) * ΔλD)
-        ϕm += line.σr_strength[i] * real(voigt)
-        ψm += sign(v_zeeman) * line.σr_strength[i] * imag(voigt)
-    end
-    for i in 1:length(line.π_shift)  # pi components (ΔMj = 0)
-        v_zeeman = v + line.π_shift[i] * ΔλB / ΔλD
-        voigt = voigt_itp(a, abs(v_zeeman)) / (sqrt(π) * ΔλD)
-        ϕ0 += line.π_strength[i] * real(voigt)
-        ψ0 += sign(v_zeeman) * line.π_strength[i] * imag(voigt)
-    end
-    for i in 1:length(line.σb_shift)  # sigma blue components (ΔMj = +1)
-        v_zeeman = v + line.σb_shift[i] * ΔλB / ΔλD
-        voigt = voigt_itp(a, abs(v_zeeman)) / (sqrt(π) * ΔλD)
-        ϕp += line.σb_strength[i] * real(voigt)
-        ψp += sign(v_zeeman) * line.σb_strength[i] * imag(voigt)
-    end
-    sin²γ = sin(Bγ)^2
-    cosγ = cos(Bγ)
-    cos2χ = cos(2 * Bχ)
-    sin2χ = sin(2 * Bχ)
-    ϕΔ = (ϕ0 + (ϕp + ϕm)/2) / 2
-    ϕI = ϕΔ * sin²γ + (ϕp + ϕm)/2
+    ΔλB_D = ΔλB / ΔλD
+    ϕ0, ψ0 = _zeeman_group(voigt_itp, a, v, ΔλB_D, line.π_strength, line.π_shift)  # ΔMj = 0
+    ϕm, ψm = _zeeman_group(voigt_itp, a, v, ΔλB_D, line.σr_strength, line.σr_shift)  # ΔMj = -1
+    ϕp, ψp = _zeeman_group(voigt_itp, a, v, ΔλB_D, line.σb_strength, line.σb_shift)  # ΔMj = +1
+    norm = one(T) / (sqrt(T(π)) * ΔλD)
+    ϕ0, ϕm, ϕp = ϕ0 * norm, ϕm * norm, ϕp * norm
+    ψ0, ψm, ψp = ψ0 * norm, ψm * norm, ψp * norm
+    ϕΔ = (ϕ0 - (ϕp + ϕm) / 2) / 2
+    ϕI = ϕΔ * sin²γ + (ϕp + ϕm) / 2
     ϕQ = ϕΔ * sin²γ * cos2χ
     ϕU = ϕΔ * sin²γ * sin2χ
-    ϕV = (ϕp - ϕm) * cosγ / 2
-    ψΔ = (ψ0 + (ψp + ψm)/2) / 2
+    ϕV = (ϕm - ϕp) * cosγ / 2
+    ψΔ = (ψ0 - (ψp + ψm) / 2) / 2
     ψQ = ψΔ * sin²γ * cos2χ
     ψU = ψΔ * sin²γ * sin2χ
-    ψV = (ψp - ψm) * cosγ / 2
+    ψV = (ψm - ψp) * cosγ / 2
     return (ϕI, ϕQ, ϕU, ϕV, ψQ, ψU, ψV)
 end
+
+
+"""
+Sums the strength-weighted Voigt (real) and Faraday-Voigt (imaginary) profiles of a group
+of Zeeman components, without the `1 / (√π ΔλD)` normalisation. `ΔλB_D` is `ΔλB / ΔλD`.
+"""
+@inline function _zeeman_group(voigt_itp, a::T, v::T, ΔλB_D::T, strength, shift) where T
+    ϕ = ψ = zero(T)
+    for i in eachindex(strength)
+        v_zeeman = v + shift[i] * ΔλB_D
+        voigt = voigt_itp(a, abs(v_zeeman))
+        ϕ += strength[i] * real(voigt)
+        ψ += copysign(strength[i], v_zeeman) * imag(voigt)
+    end
+    return ϕ, ψ
+end
+
 
 """
 Builds the reduced 4x4 Stokes propagation matrix, defined as:
@@ -242,3 +277,10 @@ function StokesA(ϕQ, ϕU, ϕV, ψQ, ψU, ψV, α_line, α_I)
                      α*ϕU -α*ψV     0  α*ψQ;
                      α*ϕV  α*ψU -α*ψQ     0]
 end
+
+
+"""
+Coefficient `e / (4π m_e c)` in nm⁻¹ T⁻¹, such that the Larmor wavelength shift
+in nm is `ΔλB = larmor_coeff * λ0² * B`, with `λ0` in nm and `B` in T.
+"""
+const larmor_coeff = ustrip((e / (4 * π * m_e * c_0)) |> u"nm^-1 * T^-1")

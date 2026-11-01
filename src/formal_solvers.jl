@@ -113,6 +113,77 @@ end
 
 
 """
+    piecewisestokes_1D_linear!(
+        z::AbstractVector{T},
+        α::AbstractVector{T},
+        source::AbstractVector{SVector{4, T}},
+        K::AbstractVector{SMatrix{4, 4, T, 16}},
+        stokes::AbstractVector{SVector{4, T}};
+        to_end::Bool=false,
+        initial_condition=:source,
+    ) where T <: AbstractFloat
+
+Compute piecewise integration of the polarised radiative transfer equation
+using the DELO-linear method
+([Rees, Murphy & Durrant 1989](https://ui.adsabs.harvard.edu/abs/1989ApJ...339.1093R/abstract),
+page 1097, b)), for a given height `z`, total intensity extinction `α = α_I`,
+source vector `source` (emissivity divided by `α_I`, for I, Q, U, V), and reduced
+propagation matrix `K` (see `StokesA`), such that the full matrix is `1 + K`.
+The solution is saved in `stokes`.
+
+The equation solved between consecutive depth points is `dI/dτ = I - F`,
+with `τ` along the direction of propagation and effective source `F = S - K I`,
+which is assumed to vary linearly with `τ`. The implicit step is solved with a 4x4 static
+matrix, so no allocations are made.
+
+The keyword arguments follow `piecewise_1D_linear!`. With `initial_condition=:source`
+the starting value is the solution for infinite optical depth, `(1 + K)⁻¹ S`.
+"""
+function piecewisestokes_1D_linear!(
+    z::AbstractVector{T},
+    α::AbstractVector{T},
+    source::AbstractVector{SVector{4, T}},
+    K::AbstractVector{SMatrix{4, 4, T, 16}},
+    stokes::AbstractVector{SVector{4, T}};
+    to_end::Bool=false,
+    initial_condition=:source,
+) where T <: AbstractFloat
+    ndep = length(z)
+    if to_end
+        start = 1
+        incr = 1
+        depth_range = 2:ndep
+    else
+        start = ndep
+        incr = -1
+        depth_range = ndep-1:-1:1
+    end
+    identity4 = one(SMatrix{4, 4, T, 16})
+    S_up = source[start]
+    K_up = K[start]
+    if initial_condition == :source
+        I_up = inv(identity4 + K_up) * S_up
+    elseif initial_condition == :zero
+        I_up = zero(SVector{4, T})
+    else
+        throw(ErrorException("NotImplemented initial condition $initial_condition"))
+    end
+    stokes[start] = I_up
+    for i in depth_range
+        S_dn = source[i]
+        K_dn = K[i]
+        Δτ = abs(z[i] - z[i-incr]) * (α[i] + α[i-incr]) / 2
+        w1, w2, w3 = _w3(Δτ)
+        rhs = (w1 * identity4 - w2 * K_up) * I_up + w2 * S_up + w3 * S_dn
+        I_dn = inv(identity4 + w3 * K_dn) * rhs
+        stokes[i] = I_dn
+        I_up, S_up, K_up = I_dn, S_dn, K_dn
+    end
+    return nothing
+end
+
+
+"""
     function feautrier(
         z::Array{<:Unitful.Length{T}, 1},
         α::Array{<:PerLength{T}, 1},

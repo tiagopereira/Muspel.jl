@@ -303,26 +303,32 @@ struct RTBufferStokes{T <: AbstractFloat}
     ndep::Int
     nλ::Int
     stokes::Array{T, 2}
-    profiles::Array{T, 2}
+    source::Vector{SVector{4, T}}
+    K::Vector{SMatrix{4, 4, T, 16}}
     α_c::Vector{T}
     j_c::Vector{T}
     α_l::Vector{T}
     j_l::Vector{T}
     αI::Vector{T}
     ΔλD::Vector{T}
-    adamp::Vector{T}
-    int_tmp::Array{T, 2}
+    γ::Vector{T}
+    ΔλB::Vector{T}
+    cosγ::Vector{T}
+    sin²γ::Vector{T}
+    cos2χ::Vector{T}
+    sin2χ::Vector{T}
+    int_tmp::Vector{SVector{4, T}}
     function RTBufferStokes(ndep, nλ; t::Type{T}=Float32) where T
         stokes = Array{T}(undef, nλ, 4)
-        profiles = Array{T}(undef, 6, ndep)
-        α_c = Vector{T}(undef, ndep)
-        j_c = Vector{T}(undef, ndep)
-        α_l = Vector{T}(undef, ndep)
-        j_l = Vector{T}(undef, ndep)
-        αI = Vector{T}(undef, ndep)
-        ΔλD = Vector{T}(undef, ndep)
-        adamp = Vector{T}(undef, ndep)
-        int_tmp = Array{T}(undef, ndep, 4)
-        new{T}(ndep, nλ, stokes, profiles, α_c, j_c, α_l, j_l, αI, ΔλD, adamp, int_tmp)
+        source = Vector{SVector{4, T}}(undef, ndep)
+        K = Vector{SMatrix{4, 4, T, 16}}(undef, ndep)
+        α_c, j_c, α_l, j_l, αI, ΔλD, γ, ΔλB, cosγ, sin²γ, cos2χ, sin2χ = (
+            Vector{T}(undef, ndep) for _ in 1:12
+        )
+        int_tmp = Vector{SVector{4, T}}(undef, ndep)
+        new{T}(
+            ndep, nλ, stokes, source, K, α_c, j_c, α_l, j_l, αI, ΔλD, γ, ΔλB,
+            cosγ, sin²γ, cos2χ, sin2χ, int_tmp
+        )
     end
 end

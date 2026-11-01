@@ -1,5 +1,8 @@
 using AtomicData
 
+# Larmor shift in nm, with λ in nm and B in T
+larmor_test(λ, B) = 4.6686e-8 * λ^2 * B
+
 @testset "intensity.jl" begin
     FALC_RH_file = joinpath(@__DIR__, "..", "data", "atmospheres", "FALC.hdf5")
     H_ATOM_file = "test_atoms/H_test.yaml"
@@ -93,6 +96,86 @@ using AtomicData
                               iso_fraction, iso_weight, iso_Δλ)
         @test buf.intensity[85] ≈ buf.intensity[argmin(buf.intensity)]
         @test buf.intensity[99÷2] > minimum(buf.intensity)
+    end
+    @testset "calc_line_stokes_1D!" begin
+        ca_atom = read_atom("test_atoms/CaII_PRD.yaml")
+        line = ca_atom.lines[end]  # Ca II 854.4 nm
+        nz = atm.nz
+        # LTE populations
+        nH = atm.hydrogen1_density .+ atm.proton_density
+        pops = [saha_boltzmann(ca_atom, atm.temperature[i], atm.electron_density[i],
+                               10^(6.34 - 12) * nH[i]) for i in 1:nz]
+        n_up = Float32[p[5] for p in pops]
+        n_lo = Float32[p[3] for p in pops]
+        σ_itp = get_σ_itp(atm, line.λ0, empty([""]))
+        voigt_itp = create_voigt_itp(LinRange(1f-4, 1f1, 300), LinRange(0f0, 5f2, 5001))
+        # Fine table for derivatives, only valid close to the line core
+        voigt_fine = create_voigt_itp(LinRange(1f-4, 1f1, 300), LinRange(0f0, 50f0, 10001))
+        buf = RTBuffer(nz, line.nλ, Float32)
+        calc_line_prep!(line, buf, atm, σ_itp)
+        calc_line_1D!(line, buf, line.λ, atm, n_up, n_lo, voigt_itp)
+        buf_s = RTBufferStokes(nz, line.nλ)
+        zero_B = zeros(Float32, nz)
+        with_B(bx, by, bz) = Atmosphere(
+            atm.nx, atm.ny, atm.nz, atm.x, atm.y, atm.z, atm.temperature, atm.velocity,
+            (x=bx, y=by, z=bz), atm.electron_density, atm.hydrogen1_density, atm.proton_density
+        )
+        function stokes_for(atm_B, λ=line.λ, itp=voigt_itp)
+            buf_l = RTBufferStokes(nz, length(λ))
+            calc_line_prep!(line, buf_l, atm_B, σ_itp)
+            calc_line_stokes_1D!(line, buf_l, λ, atm_B, n_up, n_lo, itp)
+            return buf_l
+        end
+        B0 = 0.1f0  # T
+        # No field: same as scalar solution and unpolarised
+        b0 = stokes_for(with_B(zero_B, zero_B, zero_B))
+        @test all(b0.ΔλB .== 0)
+        @test b0.α_c == buf.α_c
+        @test b0.stokes[:, 1] ≈ buf.intensity rtol=1e-4
+        @test all(abs.(b0.stokes[:, 2:4]) .< 1e-6 * maximum(b0.stokes[:, 1]))
+        # Longitudinal field: V only, antisymmetric with field direction, I unchanged by sign
+        bl = stokes_for(with_B(zero_B, zero_B, fill(B0, nz)))
+        bl_neg = stokes_for(with_B(zero_B, zero_B, fill(-B0, nz)))
+        @test all(bl.cosγ .== 1) && all(bl.sin²γ .== 0)
+        @test bl.ΔλB[1] ≈ larmor_test(line.λ0, B0) rtol=1e-3
+        @test all(bl.stokes[:, 2:3] .== 0)
+        @test maximum(abs.(bl.stokes[:, 4])) > 1e-2 * maximum(bl.stokes[:, 1])
+        @test bl_neg.stokes[:, 4] ≈ -bl.stokes[:, 4]
+        @test bl_neg.stokes[:, 1] ≈ bl.stokes[:, 1]
+        # Transverse field: Q and U only, V = 0. Rotating the field by 90° flips Q,
+        # and by 45° turns Q into U
+        bx = stokes_for(with_B(fill(B0, nz), zero_B, zero_B))
+        by = stokes_for(with_B(zero_B, fill(B0, nz), zero_B))
+        bd = stokes_for(with_B(fill(B0 / √2f0, nz), fill(B0 / √2f0, nz), zero_B))
+        Qmax = maximum(abs.(bx.stokes[:, 2]))
+        @test Qmax > 1e-2 * maximum(bx.stokes[:, 1])
+        @test all(abs.(bx.stokes[:, 3]) .< 1e-6 * Qmax)
+        @test all(abs.(bx.stokes[:, 4]) .< 1e-6 * Qmax)
+        @test by.stokes[:, 2] ≈ -bx.stokes[:, 2]
+        @test all(abs.(by.stokes[:, 3]) .< 1e-5 * Qmax)
+        @test all(abs.(bd.stokes[:, 2]) .< 1e-5 * Qmax)
+        @test bd.stokes[:, 3] ≈ bx.stokes[:, 2] rtol=1e-4 atol=1e-5 * Qmax
+        # Constant oblique field: all Stokes parameters non-zero, and I,Q,U invariant to
+        # rotation around the line of sight combined with the azimuth
+        bg = stokes_for(with_B(fill(0.05f0, nz), fill(0.03f0, nz), fill(0.06f0, nz)))
+        @test all(isfinite.(bg.stokes))
+        @test all(maximum(abs.(bg.stokes[:, k])) > 1e-3 for k in 2:4)
+        @test bg.stokes[:, 1] ≈ buf.intensity rtol=0.1  # I is only weakly affected
+        # Weak field approximation, V = -g_eff ΔλB dI/dλ, on a fine wavelength grid
+        λf = collect(range(line.λ0 - 0.08, line.λ0 + 0.08, length=801))
+        bw = stokes_for(with_B(zero_B, zero_B, fill(1f-3, nz)), λf, voigt_fine)
+        I = bw.stokes[:, 1]
+        V_weak = -bw.ΔλB[1] .* (I[3:end] - I[1:end-2]) ./ (λf[3:end] - λf[1:end-2])
+        sel = abs.(V_weak) .> 0.1 * maximum(abs.(V_weak))
+        ratio = sort(bw.stokes[2:end-1, 4][sel] ./ V_weak[sel])
+        geff = sum(line.σb_strength .* line.σb_shift)
+        @test geff ≈ 1.1 rtol=1e-3
+        @test isapprox(ratio[end ÷ 2 + 1], geff, rtol=0.1)
+        # Line without Zeeman components
+        h_line = read_atom(H_ATOM_file).lines[5]
+        @test_throws ArgumentError calc_line_stokes_1D!(
+            h_line, buf_s, h_line.λ, with_B(zero_B, zero_B, zero_B), n_up, n_lo, voigt_itp
+        )
     end
     @testset "calc_τ_cont!" begin
         σ_itp = get_σ_itp(atm, 500f0, empty([""]))

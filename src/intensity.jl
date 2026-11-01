@@ -7,10 +7,12 @@ continuum extinction and emissivity, broadening, and Doppler width. They are sav
 """
 function calc_line_prep!(
     line::AtomicLine,
-    buf::RTBuffer{T},
+    buf::Union{RTBuffer{T}, RTBufferStokes{T}},
     atm::Atmosphere{1, T},
     σ_itp::ExtinctionItpNLTE{<:Real},
 ) where T <: AbstractFloat
+    magnetic = (buf isa RTBufferStokes{T}) && has_magnetic_field(atm)
+    larmor = larmor_coeff * line.λ0^2
     for i in 1:atm.nz
         αc_thermal, αc_scattering = α_cont(
             σ_itp,
@@ -28,6 +30,12 @@ function calc_line_prep!(
             atm.hydrogen1_density[i]
         )
         buf.ΔλD[i] = doppler_width(line.λ0, line.mass, atm.temperature[i])
+        if magnetic
+            B, buf.cosγ[i], buf.sin²γ[i], buf.cos2χ[i], buf.sin2χ[i] = field_geometry(
+                atm.magnetic_field.x[i], atm.magnetic_field.y[i], atm.magnetic_field.z[i]
+            )
+            buf.ΔλB[i] = larmor * B
+        end
     end
 end
 
@@ -93,6 +101,80 @@ function calc_line_1D!(
             buf.τ_one_height[i] = calc_τ_one_height(atm.z, buf.α_total)
         end
     end
+end
+
+
+"""
+    function calc_line_stokes_1D!(
+        line::AtomicLine,
+        buf::RTBufferStokes{T},
+        λ::AbstractVector{M},
+        atm::Atmosphere{1, T},
+        n_up::AbstractVector{T},
+        n_lo::AbstractVector{T},
+        voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+        to_end::Bool=false,
+        initial_condition=:source,
+    )
+
+Calculate emerging disk-centre Stokes vector (I, Q, U, V) for a single spectral line
+in a 1D atmosphere, including Zeeman splitting and magneto-optical effects. Result
+is saved in `buf.stokes`, with size `(nλ, 4)` (I, Q, U, V).
+Need to run `calc_line_prep!()` previously.
+
+Assumes no atomic polarisation, so that the line emissivity is `j_l * (ϕI, ϕQ, ϕU, ϕV)`,
+and that the continuum is unpolarised. The line must have Zeeman components (see `AtomicLine`).
+"""
+function calc_line_stokes_1D!(
+    line::AtomicLine,
+    buf::RTBufferStokes{T},
+    λ::AbstractVector{M},
+    atm::Atmosphere{1, T},
+    n_up::AbstractVector{T},
+    n_lo::AbstractVector{T},
+    voigt_itp::Interpolations.AbstractInterpolation{<:Number, 2};
+    to_end::Bool=false,
+    initial_condition=:source,
+) where {T <: AbstractFloat, M <: Real}
+    if length(line.σr_strength) + length(line.π_strength) + length(line.σb_strength) == 0
+        throw(ArgumentError("Line has no Zeeman components, cannot compute Stokes profiles"))
+    end
+    γ_energy = ustrip((h * c_0 / (4 * π * line.λ0 * u"nm")) |> u"J")
+    c_ms = ustrip(c_0)
+    if to_end  # direction of integration
+        end_point = atm.nz
+        vsign = -1
+    else
+        end_point = 1
+        vsign = 1
+    end
+    # Line extinction and emissivity without profile, only depend on populations
+    for iz in 1:atm.nz
+        buf.α_l[iz] = γ_energy * (n_lo[iz] * line.Blu - n_up[iz] * line.Bul) * 1f9  # m^-1 nm
+        buf.j_l[iz] = γ_energy * n_up[iz] * line.Aul * 1f-3  # kW m^3 nm^-1 per profile
+    end
+    for (i, λi) in enumerate(λ)
+        for iz in 1:atm.nz
+            ΔλD = buf.ΔλD[iz]
+            a = T(damping(buf.γ[iz], λi, ΔλD))
+            v = T((λi - line.λ0 + line.λ0 * atm.velocity.z[iz] * vsign / c_ms) / ΔλD)
+            ϕI, ϕQ, ϕU, ϕV, ψQ, ψU, ψV = stokes_profiles(
+                line, voigt_itp, a, v, ΔλD, buf.ΔλB[iz],
+                buf.cosγ[iz], buf.sin²γ[iz], buf.cos2χ[iz], buf.sin2χ[iz]
+            )
+            α_I = buf.α_c[iz] + buf.α_l[iz] * ϕI
+            j_l = buf.j_l[iz]
+            buf.αI[iz] = α_I
+            buf.source[iz] = SVector(buf.j_c[iz] + j_l * ϕI, j_l * ϕQ, j_l * ϕU, j_l * ϕV) / α_I
+            buf.K[iz] = StokesA(ϕQ, ϕU, ϕV, ψQ, ψU, ψV, buf.α_l[iz], α_I)
+        end
+        piecewisestokes_1D_linear!(atm.z, buf.αI, buf.source, buf.K, buf.int_tmp;
+                                   to_end=to_end, initial_condition=initial_condition)
+        for k in 1:4
+            buf.stokes[i, k] = buf.int_tmp[end_point][k]
+        end
+    end
+    return nothing
 end
 
 
