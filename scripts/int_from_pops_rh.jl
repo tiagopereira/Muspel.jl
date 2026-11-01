@@ -50,7 +50,7 @@ function calc_rh_8542(atmos_file, aux_file, atom_file)
         buf = RTBuffer(atmos.nz, my_line.nλ, Float32)  # allocate inside for local scope
         for j in 1:atmos.ny
             calc_line_prep!(my_line, buf, atmos[:, j, i], σ_itp)
-            calc_line_1D!(my_line, buf, line.λ, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp)
+            calc_line_1D!(my_line, buf, my_line.λ, atmos[:, j, i], n_u[:, j, i], n_l[:, j, i], voigt_itp)
             intensity[:, j, i] = buf.intensity
         end
         ProgressMeter.next!(p)
