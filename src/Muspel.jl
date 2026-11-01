@@ -16,7 +16,7 @@ export doppler_width, damping, calc_broadening, create_voigt_itp
 export blackbody_λ
 export calc_line_prep!, calc_line_1D!, calc_line_stokes_1D!, calc_line_1D_isotopes!
 export calc_τ_cont!, calc_τ_one_height
-export incline_atmos, incline_data!, incline_data_inv!, project_vector!
+export incline_atmos, incline_atmos!, incline_data!, project_vector!
 export g_eff, g_LS, g_jj, g_JK, zeeman_strength, get_zeeman_components
 export field_geometry, stokes_profiles, StokesA
 
